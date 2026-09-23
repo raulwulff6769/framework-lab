@@ -1,6 +1,8 @@
 # ITles — моточасы, пробег и местоположение спецтехники (FUCHS)
 
-**v2 — работающая система.** Устройство, проверки и ответы заказчика описаны в [docs/design/DESIGN-v2.md](docs/design/DESIGN-v2.md).
+**v2 — работающий код и протокольный стенд; испытания на смонтированной машине впереди.** Архитектура и ответы заказчика — в [диздоке v2](docs/design/DESIGN-v2.md), проверенное состояние и подробный план — в [ROADMAP](docs/ROADMAP.md), история восстановления — в [контекстном обзоре](docs/research/project-history.md).
+
+Рабочие исходники публикуются в [`somemateria/biildfe4`](https://github.com/somemateria/biildfe4). APK и Windows ZIP пока доступны только в [прежней копии ITles](https://github.com/clutteredcal/ITles/releases/tag/v0.3.0): это релиз v0.3.0, **не сборка текущего коммита**. Перенос исходников не переносит бинарные релизы и не обновляет действующий Vercel.
 
 | Часть | Где | Проверка |
 |---|---|---|
@@ -8,11 +10,11 @@
 | Шлюз трекеров (EGTS, Wialon IPS, Galileosky, Wialon Retranslator) | `gateway/` | `python -m pytest tests` (реальные пакеты устройств) |
 | Сквозной прогон трекер → шлюз → платформа | `scripts/gateway_e2e.py` | `docs/evidence/gateway-e2e.json` |
 | Проверка одометрии | `scripts/odometry_validation.py` | `docs/evidence/odometry-validation.json` |
-| Windows / Android | `apps/desktop`, `apps/mobile` | сборки — в [релизе v0.2.0-preview](https://github.com/isrealellera/ITles/releases/tag/v0.2.0-preview) |
+| Windows / Android | `apps/desktop`, `apps/mobile` | прежние сборки — в [релизе v0.3.0](https://github.com/clutteredcal/ITles/releases/tag/v0.3.0); наличие файлов не заменяет проверку на реальных устройствах |
 
 Запуск на своём сервере (VPS): `cd platform && pnpm install && pnpm build && DATABASE_URL=postgres://… SETUP_KEY=… GATEWAY_TOKEN=… node --import tsx dev/server.ts`;
 шлюз: `cd gateway && ITLES_API_URL=https://… GATEWAY_TOKEN=… python3 -m itles_gateway`.
-Vercel: `pnpm build:vercel` формирует `.vercel/output` (Build Output API v3).
+Vercel: из корня `pnpm --dir platform build:vercel` формирует `platform/.vercel/output` (Build Output API v3); состояние действующего проекта и порядок безопасного обновления — в [операционном руководстве](docs/operations/vercel.md). Для локального превью лендинга и API: из корня `npm run dev` (зависимости платформы установятся, сборка создаст `platform/dist`, сервер запустится на `:5173` с локальной PGlite).
 
 ---
 
@@ -44,7 +46,7 @@ Traccar 6.15.3. Моделируются только машина (смены, 
 ```sh
 uv venv .venv --python 3.12 && . .venv/bin/activate
 uv pip install -r requirements.txt
-python -m pytest -q                      # 24 теста, включая пакеты реальных устройств
+python -m pytest -q                      # тесты, включая пакеты из наборов реальных устройств
 python scripts/run_scenarios.py          # сценарии → docs/simulation-results.md, docs/img/
 python scripts/build_workbook.py         # Excel → deliverables/
 ```

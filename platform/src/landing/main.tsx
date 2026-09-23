@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import '../styles.css';
 import { ThemeToggle } from '../app/main-toggle';
 
-const REL = 'https://github.com/isrealellera/ITles/releases/latest/download';
+const REL = 'https://github.com/clutteredcal/ITles/releases/download/v0.3.0';
 const DOWNLOADS = [
   { os: 'Android', file: `${REL}/ITles.apk`, note: 'Кабинет и режим «Телефон в кабине». Файл APK, Android 7+.' },
   { os: 'Windows', file: `${REL}/ITles-Windows-x64.zip`, note: 'Windows 10/11 x64: распакуйте и запустите ITles.exe.' },
@@ -26,7 +26,7 @@ const PATHS = [
 const ACCURACY = [
   ['Потери точек трекер → сервер', '0 из 5 425 (Galileosky, EGTS, Wialon IPS, архивы после зон без связи)'],
   ['Повторная отправка архива', '0 дублей'],
-  ['Моточасы из ЭБУ (J1939 SPN 247)', 'совпадают со счётчиком панели, шаг 0,05 ч'],
+  ['Моточасы из ЭБУ (J1939 SPN 247)', 'в модельном прогоне: шаг 0,05 ч; сверка с реальной панелью ещё нужна'],
   ['Пробег грузовика и трактора по ГНСС', '−0,3 … −0,7 %'],
   ['Гусеничный экскаватор с поворотной платформой', '+0,6 % (простое суммирование: +906 %)'],
   ['Ложный пробег на стоянке 72 ч под пологом леса', '≤ 0,16 км (простое суммирование: до 59 км)'],
@@ -34,8 +34,8 @@ const ACCURACY = [
 
 const FAQ = [
   ['Нужно ли покупать оборудование?', 'Нет, если в машине есть трекер (для лесозаготовительной техники он обязателен) или можно оставить в кабине телефон. Датчики состояния масла докупаются только тем, кому нужен анализ масла на ходу.'],
-  ['Что если в лесу нет связи?', 'Данные копятся в памяти трекера или телефона и досылаются при выезде в зону сети. Ни одна точка не теряется, у каждой машины видна свежесть данных.'],
-  ['Собираете ли вы персональные данные?', 'Нет. Вход — по логину, который выдаёт администратор организации; имена, телефоны и почта не нужны.'],
+  ['Что если в лесу нет связи?', 'Данные копятся в памяти трекера или телефона и досылаются при выезде в зону сети, пока не исчерпан объём архива. У каждой машины видна свежесть данных; там, где связи нет, онлайн-обновлений не бывает.'],
+  ['Собираете ли вы персональные данные?', 'Для входа достаточно логина: имена, телефоны и почта водителей не нужны. Владелец может запретить приём координат; правовой режим геоданных нужно оценить до реального пилота.'],
   ['Какие датчики масла подходят?', 'Уровень, давление и температура — из CAN двигателя (J1939 SPN 98/100/175) или датчиками уровня; вода и состояние масла — датчиками с Modbus RTU или J1939 через RS-485/CAN трекера.'],
 ];
 
@@ -102,9 +102,9 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 pb-14">
-        <h2 className="text-2xl font-semibold tracking-tight">Точность — измерена</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Проверка точности на модельном стенде</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Сквозные прогоны: симулированные машины передают данные реальными протоколами трекеров по TCP через шлюз в платформу. Отчёты — в репозитории проекта (docs/evidence).
+          Симулированные машины передают данные реальными протоколами трекеров по TCP через шлюз в платформу. Цифры пробега и стоянки получены на синтетических маршрутах, не на смонтированной машине. Отчёты — в репозитории проекта (docs/evidence).
         </p>
         <div className="card mt-6 overflow-hidden">
           <table className="w-full text-left text-sm">
@@ -123,6 +123,9 @@ function Landing() {
       <section id="download" className="border-y border-border bg-card">
         <div className="mx-auto max-w-6xl px-6 py-14">
           <h2 className="text-2xl font-semibold tracking-tight">Скачать</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+            APK и Windows ZIP — прежние сборки v0.3.0 из <a className="underline" href="https://github.com/clutteredcal/ITles/releases/tag/v0.3.0">другой копии ITles</a>. Они не собраны из текущего коммита <a className="underline" href="https://github.com/somemateria/biildfe4">исходников ITles</a>.
+          </p>
           <div className="mt-6 grid gap-4 md:grid-cols-4">
             {DOWNLOADS.map((d) => (
               <a key={d.os} href={d.file} className="rounded-xl border border-border p-5 transition-colors hover:border-primary/50 hover:bg-accent">
