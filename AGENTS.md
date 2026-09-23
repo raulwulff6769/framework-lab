@@ -15,7 +15,14 @@
 
 ### Subagent model policy
 
-Preserve the existing default-branch policy for every `subagent_control` spawn: pass an explicit `model`, using only `openai/gpt-6-luna` or `z-ai/glm-5.3-flash`. If one route is rejected, retry only the other when suitable; do not fall back to a third route or omit `model`. `max` is a reasoning-effort setting, not a model ID. Do not claim maximum effort was enforced without confirmation from the invocation or runtime.
+For every `subagent_control` spawn, pass an explicit `model`. Only these routes are permitted:
+
+- `openai/gpt-6-luna`
+- `z-ai/glm-5.3-flash`
+
+If a route is rejected, retry only with the other permitted route if it suits the task. If neither works, report the routing error. Never omit `model`, use the default delegate model, or fall back to a third route.
+
+`max` is a reasoning-effort setting, not part of either model ID. When maximum effort is required but the spawn interface cannot set it, prefer `z-ai/glm-5.3-flash` (Z.AI documents `max` as its default). Use `openai/gpt-6-luna` for a max-effort task only if the invocation can explicitly set `reasoning.effort=max`. Do not claim that maximum effort was enforced without confirmation from the invocation or runtime.
 
 ## Проверка изменений
 
