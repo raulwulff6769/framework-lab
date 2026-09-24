@@ -31,7 +31,7 @@ export async function syncConnector(db: Db, connectorId: string, opts: { history
   const report: SyncReport = {
     units: 0,
     new_machines: 0,
-    result: { positions: 0, counters: 0, sensors: 0, duplicates: 0, location_dropped: 0, rejected: [] },
+    result: { positions: 0, counters: 0, sensors: 0, faults: 0, duplicates: 0, location_dropped: 0, rejected: [] },
   };
   try {
     const units = await fetchUnits(c.kind, c.base_url, secret, new Date(Date.now() - historyHours * 3600e3));

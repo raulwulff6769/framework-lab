@@ -14,6 +14,7 @@
     "build:vercel": "vite build && node scripts/build-vercel.mjs"
   },
   "dependencies": {
+    "geographiclib-geodesic": "2.2.0",
     "lucide-react": "1.47.0",
     "maplibre-gl": "6.11.1",
     "pg": "8.23.0",

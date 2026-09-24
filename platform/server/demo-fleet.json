@@ -1,0 +1,118 @@
+{
+  "about": "Demo tenant and live stand fleet. Single source of truth for platform/server/demo.ts and stand/. All names carry «(демо)»; IMEIs are Luhn-valid stand identifiers, not registered devices; tank volumes and widths are illustrative.",
+  "orgs": [
+    { "id": "demo-org-fuchs", "kind": "fuchs", "name": "FUCHS · демо-стенд", "parent": null, "tz": "Europe/Moscow" },
+    { "id": "demo-org-dist-south", "kind": "distributor", "name": "Агро-Сервис Юг (демо)", "parent": "demo-org-fuchs", "tz": "Europe/Moscow" },
+    { "id": "demo-org-dist-nw", "kind": "distributor", "name": "ЛесТехСервис Северо-Запад (демо)", "parent": "demo-org-fuchs", "tz": "Europe/Moscow" },
+    { "id": "demo-org-dist-center", "kind": "distributor", "name": "ГорСтройТехника Центр (демо)", "parent": "demo-org-fuchs", "tz": "Europe/Moscow" },
+    { "id": "demo-org-kuban", "kind": "customer", "name": "Агрохолдинг «Кубань-Агро» (демо)", "parent": "demo-org-dist-south", "tz": "Europe/Moscow" },
+    { "id": "demo-org-onega", "kind": "customer", "name": "Леспромхоз «Онега» (демо)", "parent": "demo-org-dist-nw", "tz": "Europe/Moscow" },
+    { "id": "demo-org-granit", "kind": "customer", "name": "Карьер «Гранит» (демо)", "parent": "demo-org-dist-center", "tz": "Europe/Moscow" },
+    { "id": "demo-org-stroy", "kind": "customer", "name": "СК «Подмосковье-Строй» (демо)", "parent": "demo-org-dist-center", "tz": "Europe/Moscow" }
+  ],
+  "users": [
+    { "login": "demo-owner", "org": "demo-org-fuchs", "role": "superadmin", "label": "Владелец сервиса" },
+    { "login": "demo-fuchs-admin", "org": "demo-org-fuchs", "role": "admin", "label": "Администратор FUCHS" },
+    { "login": "demo-analyst", "org": "demo-org-fuchs", "role": "analyst", "label": "Аналитик FUCHS" },
+    { "login": "demo-dealer", "org": "demo-org-dist-south", "role": "admin", "label": "Руководитель дилера" },
+    { "login": "demo-engineer", "org": "demo-org-dist-south", "role": "engineer", "label": "Сервисный инженер дилера" },
+    { "login": "demo-kuban-admin", "org": "demo-org-kuban", "role": "admin", "label": "Главный администратор агрохолдинга" },
+    { "login": "demo-dispatcher", "org": "demo-org-kuban", "role": "dispatcher", "label": "Диспетчер" },
+    { "login": "demo-mechanic", "org": "demo-org-kuban", "role": "mechanic", "label": "Главный механик" },
+    { "login": "demo-viewer", "org": "demo-org-kuban", "role": "viewer", "label": "Бухгалтер" },
+    { "login": "demo-operator", "org": "demo-org-kuban", "role": "operator", "label": "Механизатор К-7М", "machines": ["demo-m-k7m"] },
+    { "login": "demo-les-admin", "org": "demo-org-onega", "role": "admin", "label": "Администратор леспромхоза" }
+  ],
+  "machines": [
+    {
+      "id": "demo-m-k7m", "org": "demo-org-kuban", "name": "Кировец К-7М №12 (демо)", "category": "tractor", "make": "Кировец", "model": "К-7М", "year": 2022,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 1000, "work_width_m": 12,
+      "profile": "tractor", "region": "kuban", "field": "demo-gf-field-7",
+      "tracker": { "imei": "868183030828904", "model": "Galileosky 10", "protocol": "galileosky", "path": "gateway", "can": "встроенный CAN (J1939)", "fuel_sensor": "Omnicomm LLS 5 (RS-485)" }
+    },
+    {
+      "id": "demo-m-rsm2375", "org": "demo-org-kuban", "name": "RSM 2375 №7 (демо)", "category": "tractor", "make": "Ростсельмаш", "model": "RSM 2375", "year": 2021,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 900, "work_width_m": 10.8,
+      "profile": "tractor", "region": "kuban", "field": "demo-gf-field-12",
+      "tracker": { "imei": "860251055783045", "model": "Навтелеком СМАРТ S-2435", "protocol": "navtelecom_flex", "path": "gateway", "can": "CAN-интерфейс терминала (J1939)", "fuel_sensor": "уровень из CAN (SPN 96)" }
+    },
+    {
+      "id": "demo-m-mtz3522", "org": "demo-org-kuban", "name": "Беларус-3522 №3 (демо)", "category": "tractor", "make": "МТЗ", "model": "Беларус-3522", "year": 2020,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 700, "work_width_m": 8,
+      "profile": "tractor", "region": "kuban", "field": "demo-gf-field-15",
+      "tracker": { "imei": "352102127408282", "model": "Teltonika FMC650", "protocol": "teltonika", "path": "traccar", "can": "CAN1 (J1939)", "fuel_sensor": "уровень из CAN" }
+    },
+    {
+      "id": "demo-m-torum", "org": "demo-org-kuban", "name": "Комбайн TORUM 785 №2 (демо)", "category": "combine", "make": "Ростсельмаш", "model": "TORUM 785", "year": 2023,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 850, "work_width_m": 9,
+      "profile": "combine", "region": "kuban", "field": "demo-gf-field-12",
+      "tracker": { "imei": "868183036457856", "model": "Galileosky 7.0 Lite", "protocol": "wialon_retranslator", "path": "wialon_local", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN" }
+    },
+    {
+      "id": "demo-m-harvester", "org": "demo-org-onega", "name": "Харвестер Ponsse Ergo 8W №1 (демо)", "category": "harvester", "make": "Ponsse", "model": "Ergo 8W", "year": 2019,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 300, "work_width_m": null,
+      "profile": "harvester", "region": "onega", "field": "demo-gf-cut-3",
+      "tracker": { "imei": "868183033401956", "model": "Galileosky 10", "protocol": "egts", "path": "gateway", "can": "встроенный CAN (J1939)", "fuel_sensor": "Технотон DUT-E (RS-485)" }
+    },
+    {
+      "id": "demo-m-forwarder", "org": "demo-org-onega", "name": "Форвардер Амкодор 2661-01 №4 (демо)", "category": "forwarder", "make": "Амкодор", "model": "2661-01", "year": 2021,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 200, "work_width_m": null,
+      "profile": "forwarder", "region": "onega", "field": "demo-gf-cut-3",
+      "tracker": { "imei": "860251058977768", "model": "Навтелеком Signal S-2651", "protocol": "navtelecom_flex", "path": "gateway", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN (SPN 96)" }
+    },
+    {
+      "id": "demo-m-kamaz", "org": "demo-org-onega", "name": "Лесовоз КАМАЗ-43118 №21 (демо)", "category": "timber_truck", "make": "КАМАЗ", "model": "43118", "year": 2018,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 350, "work_width_m": null,
+      "profile": "timber_truck", "region": "onega", "field": null,
+      "tracker": { "imei": "7011043", "model": "Omnicomm Profi 2.0", "protocol": "egts_retranslator", "path": "omnicomm_online", "can": "CAN (J1939/FMS)", "fuel_sensor": "Omnicomm LLS 5 (RS-485)" }
+    },
+    {
+      "id": "demo-m-sany", "org": "demo-org-granit", "name": "Экскаватор SANY SY500H №5 (демо)", "category": "excavator", "make": "SANY", "model": "SY500H", "year": 2022,
+      "chassis": "tracked", "rotating_upper": true, "tank_l": 650, "work_width_m": null,
+      "profile": "excavator", "region": "granit", "field": "demo-gf-pit",
+      "tracker": { "imei": "352102124612720", "model": "Teltonika FMB640", "protocol": "teltonika", "path": "traccar", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN" }
+    },
+    {
+      "id": "demo-m-belaz", "org": "demo-org-granit", "name": "БелАЗ-7547 №14 (демо)", "category": "dump_truck", "make": "БелАЗ", "model": "7547", "year": 2017,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 800, "work_width_m": null,
+      "profile": "dump_truck", "region": "granit", "field": "demo-gf-pit",
+      "tracker": { "imei": "868183036961840", "model": "Galileosky 10", "protocol": "galileosky", "path": "gateway", "can": "встроенный CAN (J1939)", "fuel_sensor": "Omnicomm LLS 5 (RS-485)" }
+    },
+    {
+      "id": "demo-m-sdlg", "org": "demo-org-granit", "name": "Погрузчик SDLG L968F №2 (демо)", "category": "loader", "make": "SDLG", "model": "L968F", "year": 2021,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 300, "work_width_m": null,
+      "profile": "loader", "region": "granit", "field": "demo-gf-pit",
+      "tracker": { "imei": "860251053107395", "model": "Навтелеком СМАРТ S-2435", "protocol": "navtelecom_flex", "path": "gateway", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN (SPN 96)" }
+    },
+    {
+      "id": "demo-m-chetra", "org": "demo-org-stroy", "name": "Бульдозер ЧЕТРА Т11 №9 (демо)", "category": "dozer", "make": "ЧЕТРА", "model": "Т11", "year": 2020,
+      "chassis": "tracked", "rotating_upper": false, "tank_l": 450, "work_width_m": null,
+      "profile": "dozer", "region": "stroy", "field": "demo-gf-site",
+      "tracker": { "imei": "868183032789682", "model": "терминал с протоколом Wialon IPS 2.0", "protocol": "wialon_ips", "path": "gateway", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN" }
+    },
+    {
+      "id": "demo-m-jcb", "org": "demo-org-stroy", "name": "Экскаватор-погрузчик JCB 3CX №6 (демо)", "category": "loader", "make": "JCB", "model": "3CX", "year": 2019,
+      "chassis": "wheeled", "rotating_upper": false, "tank_l": 160, "work_width_m": null,
+      "profile": "loader", "region": "stroy", "field": "demo-gf-site",
+      "tracker": { "imei": "352102120046360", "model": "Teltonika FMC650", "protocol": "teltonika", "path": "traccar", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN" }
+    }
+  ],
+  "free_trackers": [
+    { "imei": "868183038959735", "vehicle": "Кировец К-744Р4 (ещё не подключён)", "category": "tractor", "profile": "tractor", "region": "kuban", "field": "demo-gf-field-15", "tank_l": 800, "model": "Galileosky 10", "protocol": "galileosky", "path": "gateway", "can": "встроенный CAN (J1939)", "fuel_sensor": "Omnicomm LLS 5 (RS-485)" },
+    { "imei": "860251057350843", "vehicle": "Харвестер Амкодор 2552 (ещё не подключён)", "category": "harvester", "profile": "harvester", "region": "onega", "field": "demo-gf-cut-3", "tank_l": 250, "model": "Навтелеком Signal S-2651", "protocol": "navtelecom_flex", "path": "gateway", "can": "CAN (J1939)", "fuel_sensor": "уровень из CAN (SPN 96)" }
+  ],
+  "regions": {
+    "kuban": { "label": "Краснодарский край, Тимашевский р-н", "base": [45.6155, 38.9405], "utc_offset_h": 3 },
+    "onega": { "label": "Республика Карелия, Медвежьегорский р-н", "base": [62.9148, 34.4592], "utc_offset_h": 3 },
+    "granit": { "label": "Белгородская обл.", "base": [50.8820, 37.4450], "utc_offset_h": 3 },
+    "stroy": { "label": "Московская обл.", "base": [55.9800, 37.2400], "utc_offset_h": 3 }
+  },
+  "geofences": [
+    { "id": "demo-gf-field-7", "org": "demo-org-kuban", "name": "Поле №7 (озимая пшеница)", "kind": "field", "ring": [[38.9620, 45.6310], [38.9860, 45.6310], [38.9860, 45.6405], [38.9620, 45.6405], [38.9620, 45.6310]] },
+    { "id": "demo-gf-field-12", "org": "demo-org-kuban", "name": "Поле №12 (ячмень)", "kind": "field", "ring": [[38.9120, 45.6420], [38.9400, 45.6420], [38.9400, 45.6530], [38.9120, 45.6530], [38.9120, 45.6420]] },
+    { "id": "demo-gf-field-15", "org": "demo-org-kuban", "name": "Поле №15 (подсолнечник)", "kind": "field", "ring": [[38.9500, 45.5960], [38.9780, 45.5960], [38.9780, 45.6070], [38.9500, 45.6070], [38.9500, 45.5960]] },
+    { "id": "demo-gf-cut-3", "org": "demo-org-onega", "name": "Лесосека №3, квартал 118", "kind": "forest", "ring": [[34.5980, 62.9760], [34.6230, 62.9760], [34.6230, 62.9855], [34.5980, 62.9855], [34.5980, 62.9760]] },
+    { "id": "demo-gf-pit", "org": "demo-org-granit", "name": "Карьер, уступы 3–5", "kind": "quarry", "ring": [[37.4380, 50.8760], [37.4540, 50.8760], [37.4540, 50.8850], [37.4380, 50.8850], [37.4380, 50.8760]] },
+    { "id": "demo-gf-site", "org": "demo-org-stroy", "name": "Стройплощадка, корпус 2", "kind": "site", "ring": [[37.2360, 55.9780], [37.2440, 55.9780], [37.2440, 55.9820], [37.2360, 55.9820], [37.2360, 55.9780]] }
+  ]
+}

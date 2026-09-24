@@ -3,6 +3,54 @@ import { api, API_KEY, TOKEN_KEY } from '../api';
 import { ErrorLine } from '../ui';
 import { ThemeToggle } from '../main-toggle';
 
+const KIND_RU: Record<string, string> = { fuchs: 'FUCHS', distributor: 'Дилер', customer: 'Клиент' };
+
+function DemoAccess({ onDone }: { onDone: () => void }) {
+  const [demo, setDemo] = useState<{ enabled: boolean; accounts: any[] } | null>(null);
+  const [err, setErr] = useState<unknown>(null);
+  useEffect(() => {
+    api('GET', '/api/demo', undefined, null).then(setDemo).catch(() => setDemo(null));
+  }, []);
+  if (!demo?.enabled || !demo.accounts.length) return null;
+  const enter = async (login: string) => {
+    setErr(null);
+    try {
+      const r = await api('POST', '/api/auth/demo', { login }, null);
+      localStorage.setItem(TOKEN_KEY, r.token);
+      onDone();
+    } catch (e) {
+      setErr(e);
+    }
+  };
+  return (
+    <div className="card w-full max-w-2xl space-y-3 p-6 shadow-2xl">
+      <div>
+        <div className="text-lg font-bold">Демо-доступ: войдите под любой ролью</div>
+        <p className="text-xs text-muted-foreground">
+          Демо-организации с живым стендом: агрохолдинг на Кубани, леспромхоз в Карелии, карьер и стройка. У каждой роли свои права и свой набор видимых
+          данных — сравните, что видит суперадминистратор, диспетчер, механик и оператор. Демо-учётки видят только демо-данные; ночью демо восстанавливается.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {demo.accounts.map((a) => (
+          <button key={a.login} onClick={() => enter(a.login)} className="rounded-xl border border-border p-3 text-left transition hover:border-primary hover:bg-primary/5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">{a.role_label}</span>
+              <span className="badge bg-muted text-[10px] text-muted-foreground">{KIND_RU[a.org_kind]}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {a.label ? `${a.label} · ` : ''}
+              {a.org_name}
+            </div>
+            <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{a.summary}</div>
+          </button>
+        ))}
+      </div>
+      <ErrorLine e={err} />
+    </div>
+  );
+}
+
 export function Login({ onDone }: { onDone: () => void }) {
   const [mode, setMode] = useState<'login' | 'redeem' | 'setup'>('login');
   const [f, setF] = useState<Record<string, string>>({});
@@ -34,7 +82,7 @@ export function Login({ onDone }: { onDone: () => void }) {
     }
   };
   return (
-    <div className="relative flex min-h-full items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-full flex-col items-center justify-center gap-6 bg-background p-4 py-10">
       <div className="absolute right-4 top-4"><ThemeToggle /></div>
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7 shadow-2xl">
         <div className="flex items-center gap-3">
@@ -101,6 +149,7 @@ export function Login({ onDone }: { onDone: () => void }) {
           </button>
         </div>
       </form>
+      {!needsSetup && <DemoAccess onDone={onDone} />}
     </div>
   );
 }

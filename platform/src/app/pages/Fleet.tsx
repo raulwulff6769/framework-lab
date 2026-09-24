@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Me } from '../main';
+import { can, sees, type Me } from '../perm';
 import { go } from '../main';
 import { api, CATEGORY_RU, fmt, METHOD_RU } from '../api';
-import { ErrorLine, Fresh, MapView, Modal, useAsync, type MapMarker } from '../ui';
+import { ErrorLine, Fresh, Modal, useAsync } from '../ui';
+import { GisMap, type GisMarker } from '../map/GisMap';
 import { StatusDot, fmtSensor } from '../oil';
 
 export function CounterCell({ c, unit }: { c: any; unit: string }) {
@@ -90,7 +91,10 @@ export function Fleet({ me }: { me: Me }) {
   const [tick, setTick] = useState(0);
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
+  const [at, setAt] = useState<number | null>(null);
   const res = useAsync(() => api('GET', '/api/machines'), [tick]);
+  const gf = useAsync(() => (sees(me, 'map') ? api('GET', '/api/geofences') : Promise.resolve({ geofences: [] })), []);
+  const past = useAsync(() => (at ? api('GET', `/api/fleet/at?t=${new Date(at).toISOString()}`) : Promise.resolve(null)), [at]);
   useEffect(() => {
     const t = setInterval(async () => {
       await api('POST', '/api/refresh').catch(() => {});
@@ -100,20 +104,26 @@ export function Fleet({ me }: { me: Me }) {
   }, []);
   const machines: any[] = res.data?.machines ?? [];
   const shown = machines.filter((m) => !q || `${m.name} ${m.org_name} ${m.make ?? ''} ${m.model ?? ''}`.toLowerCase().includes(q.toLowerCase()));
-  const markers: MapMarker[] = useMemo(
-    () =>
-      shown
-        .filter((m) => m.position)
-        .map((m) => ({
-          id: m.id,
-          lat: m.position.lat,
-          lon: m.position.lon,
-          label: `${m.name} · ${fmt(m.engine_hours?.value)} ч`,
-          color: m.freshness === 'online' ? '#22c55e' : m.freshness === 'recent' ? '#f59e0b' : '#ef4444',
-        })),
-    [res.data, q],
-  );
+  const markers: GisMarker[] = useMemo(() => {
+    if (at && past.data) {
+      const ids = new Set(shown.map((m) => m.id));
+      return (past.data.machines as any[])
+        .filter((p) => ids.has(p.id))
+        .map((p) => ({ id: p.id, lat: p.lat, lon: p.lon, label: `${p.name} · ${new Date(p.t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`, color: (p.speed_kmh ?? 0) > 2 ? '#22c55e' : '#1f6feb' }));
+    }
+    return shown
+      .filter((m) => m.position)
+      .map((m) => ({
+        id: m.id,
+        lat: m.position.lat,
+        lon: m.position.lon,
+        label: m.engine_hours ? `${m.name} · ${fmt(m.engine_hours.value)} ч` : m.name,
+        color: m.freshness === 'online' ? '#22c55e' : m.freshness === 'recent' ? '#f59e0b' : '#ef4444',
+      }));
+  }, [res.data, q, at, past.data]);
   const online = machines.filter((m) => m.freshness === 'online').length;
+  const canHistory = sees(me, 'map') && sees(me, 'history');
+  const dayAgo = Date.now() - 24 * 3600e3;
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -125,7 +135,7 @@ export function Fleet({ me }: { me: Me }) {
         </div>
         <div className="flex gap-2">
           <input className="input w-48" placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
-          {me.role === 'admin' && (
+          {can(me, 'machines.create') && (
             <button className="btn-primary" onClick={() => setAdding(true)}>
               + Машина
             </button>
@@ -133,17 +143,35 @@ export function Fleet({ me }: { me: Me }) {
         </div>
       </div>
       <ErrorLine e={res.error} />
-      {markers.length > 0 && <MapView markers={markers} height={360} onPick={(id) => go('#/machine/' + id)} />}
+      {sees(me, 'map') && (markers.length > 0 || at) && (
+        <div className="space-y-2">
+          <GisMap markers={markers} geofences={gf.data?.geofences ?? []} height={420} onPick={(id) => go('#/machine/' + id)} fitKey={at ? 'fleet-at' : undefined} />
+          {canHistory && (
+            <div className="card flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
+              <label className="flex items-center gap-2 whitespace-nowrap">
+                <input type="checkbox" checked={at !== null} onChange={(e) => setAt(e.target.checked ? Date.now() - 3600e3 : null)} /> Парк на момент времени
+              </label>
+              {at !== null && (
+                <>
+                  <input type="range" className="min-w-[200px] flex-1 accent-[#e11d48]" min={dayAgo} max={Date.now()} step={60e3} value={at} onChange={(e) => setAt(Number(e.target.value))} aria-label="Момент времени для всего парка" />
+                  <span className="tabular-nums text-muted-foreground">{new Date(at).toLocaleString('ru-RU')}</span>
+                  <span className="text-xs text-muted-foreground">{past.data ? `${past.data.machines.length} машин с точкой не старше 2 ч` : ''}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Машина</th>
               {me.org_kind !== 'customer' && <th className="px-4 py-3">Клиент</th>}
-              <th className="px-4 py-3">Моточасы</th>
-              <th className="px-4 py-3">Пробег</th>
-              <th className="px-4 py-3">Масло</th>
-              <th className="px-4 py-3">Местоположение</th>
+              {sees(me, 'hours') && <th className="px-4 py-3">Моточасы</th>}
+              {sees(me, 'mileage') && <th className="px-4 py-3">Пробег</th>}
+              {(sees(me, 'fuel') || sees(me, 'oil')) && <th className="px-4 py-3">{sees(me, 'fuel') ? 'Топливо / масло' : 'Масло'}</th>}
+              {sees(me, 'map') && <th className="px-4 py-3">Местоположение</th>}
               <th className="px-4 py-3">Данные</th>
             </tr>
           </thead>
@@ -157,23 +185,29 @@ export function Fleet({ me }: { me: Me }) {
                   </div>
                 </td>
                 {me.org_kind !== 'customer' && <td className="px-4 py-3 text-muted-foreground">{m.org_name}</td>}
-                <td className="px-4 py-3">
-                  <CounterCell c={m.engine_hours} unit="ч" />
-                </td>
-                <td className="px-4 py-3">
-                  <CounterCell c={m.odometer} unit="км" />
-                </td>
-                <td className="px-4 py-3 tabular-nums">
+                {sees(me, 'hours') && (
+                  <td className="px-4 py-3">
+                    <CounterCell c={m.engine_hours} unit="ч" />
+                    {m.faults?.length > 0 && <div className="text-[11px] text-danger">DTC: {m.faults.map((f: any) => `${f.spn}/${f.fmi}`).join(', ')}</div>}
+                  </td>
+                )}
+                {sees(me, 'mileage') && (
+                  <td className="px-4 py-3">
+                    <CounterCell c={m.odometer} unit="км" />
+                  </td>
+                )}
+                {(sees(me, 'fuel') || sees(me, 'oil')) && <td className="px-4 py-3 tabular-nums">
+                  {m.fuel?.values?.fuel_level_l ? <div>{fmt(m.fuel.values.fuel_level_l.value, 0)} л</div> : m.fuel?.values?.fuel_level_pct ? <div>{fmt(m.fuel.values.fuel_level_pct.value, 0)} %</div> : null}
                   {m.oil ? (
                     <span className="inline-flex items-center gap-1.5">
                       <StatusDot s={m.oil.status} />
                       {m.oil.values.oil_level_pct ? fmtSensor('oil_level_pct', m.oil.values.oil_level_pct.value) : 'есть данные'}
                     </span>
-                  ) : (
+                  ) : !m.fuel ? (
                     <span className="text-muted-foreground">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  ) : null}
+                </td>}
+                {sees(me, 'map') && <td className="px-4 py-3 text-xs text-muted-foreground">
                   {!m.location_enabled ? (
                     <span className="badge bg-muted text-muted-foreground">выключено владельцем</span>
                   ) : !m.location_visible ? (
@@ -183,7 +217,7 @@ export function Fleet({ me }: { me: Me }) {
                   ) : (
                     '—'
                   )}
-                </td>
+                </td>}
                 <td className="px-4 py-3">
                   <Fresh f={m.freshness} t={m.last_data_t} />
                 </td>
@@ -192,7 +226,7 @@ export function Fleet({ me }: { me: Me }) {
             {!res.loading && shown.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  Машин пока нет. {me.role === 'admin' ? 'Добавьте первую кнопкой «+ Машина» или подключите платформу в разделе «Подключения».' : ''}
+                  Машин пока нет. {can(me, 'machines.create') ? 'Добавьте первую кнопкой «+ Машина» или подключите платформу в разделе «Подключения».' : ''}
                 </td>
               </tr>
             )}

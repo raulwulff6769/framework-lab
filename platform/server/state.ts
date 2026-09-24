@@ -2,7 +2,16 @@ import type { Db } from './db.js';
 import { pickBest, type Candidate, type CounterMethod } from './domain/counters.js';
 import { freshness, type Freshness } from './domain/staleness.js';
 import { robustDistance, type MachineProfile } from './domain/odometry.js';
-import { analyzeLevel, sensorStatus, worst, type LevelAnalysis, type Status } from './domain/sensors.js';
+import { analyzeLevel, SENSORS, sensorStatus, worst, type LevelAnalysis, type Status } from './domain/sensors.js';
+import { ALL_BLOCKS, type Block } from './domain/roles.js';
+import { dtcText } from './domain/j1939.js';
+
+/** Who looks at the data: location sharing is decided per organisation, blocks per user. */
+export interface Viewer {
+  org_id: string;
+  blocks: Block[];
+}
+export const FULL_VIEW = (orgId: string): Viewer => ({ org_id: orgId, blocks: ALL_BLOCKS });
 
 export interface CounterView {
   value: number;
@@ -35,6 +44,14 @@ export interface MachineSummary {
   freshness: Freshness;
   sources: Array<{ id: string; kind: string; label: string | null; last_seen_at: number | null }>;
   oil: OilLatest | null;
+  engine: OilLatest | null;
+  fuel: OilLatest | null;
+  agro: OilLatest | null;
+  faults: Array<{ spn: number; fmi: number; oc: number | null; lamp: number | null; t: number; text: string }> | null;
+  tank_l: number | null;
+  work_width_m: number | null;
+  protected: boolean;
+  hidden: Block[];
 }
 
 export interface OilLatest {
@@ -45,20 +62,23 @@ export interface OilLatest {
 
 const ms = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
-export async function summarize(db: Db, ids: string[], viewerOrgId: string, now = Date.now()): Promise<MachineSummary[]> {
+export async function summarize(db: Db, ids: string[], viewer: Viewer, now = Date.now()): Promise<MachineSummary[]> {
   if (ids.length === 0) return [];
+  const sees = (b: Block) => viewer.blocks.includes(b);
   const machines = await db.query<any>(
     `select m.id, m.org_id, o.name as org_name, m.name, m.category, m.make, m.model, m.year, m.chassis,
-            m.rotating_upper, m.location_enabled, o.share_location_up, o.tz
+            m.rotating_upper, m.location_enabled, o.share_location_up, o.tz, m.tank_l, m.work_width_m, m.protected
        from machines m join orgs o on o.id = m.org_id
       where m.id = any($1::text[]) and not m.archived
       order by o.name, m.name`,
     [ids],
   );
   const visibleLoc = new Set(
-    machines.rows.filter((m) => m.location_enabled && (m.org_id === viewerOrgId || m.share_location_up)).map((m) => m.id),
+    machines.rows
+      .filter((m) => sees('map') && m.location_enabled && (m.org_id === viewer.org_id || m.share_location_up))
+      .map((m) => m.id),
   );
-  const [positions, counters, cals, readings, gnss, sources, oil] = await Promise.all([
+  const [positions, counters, cals, readings, gnss, sources, sensorGroups, faults] = await Promise.all([
     visibleLoc.size
       ? db.query<any>(
           `select m.id as machine_id, p.lat, p.lon, p.speed_kmh, p.course, (extract(epoch from p.t) * 1000)::float8 as t
@@ -100,6 +120,14 @@ export async function summarize(db: Db, ids: string[], viewerOrgId: string, now 
       [ids],
     ),
     latestSensors(db, ids),
+    sees('faults')
+      ? db.query<any>(
+          `select distinct on (machine_id, spn, fmi) machine_id, spn, fmi, oc, lamp, (extract(epoch from t) * 1000)::float8 as t
+             from fault_events where machine_id = any($1::text[]) and t > now() - interval '30 minutes'
+            order by machine_id, spn, fmi, t desc`,
+          [ids],
+        )
+      : Promise.resolve({ rows: [] as any[], rowCount: 0 }),
   ]);
 
   const calBy = new Map(cals.rows.map((c) => [`${c.source_id}|${c.metric}`, c]));
@@ -205,6 +233,8 @@ export async function summarize(db: Db, ids: string[], viewerOrgId: string, now 
     }
 
     const times = [pos?.t, ...mc.map((c) => c.t)].filter((x) => x !== undefined && x !== null).map(Number);
+    const groups = sensorGroups.get(m.id);
+    if (groups?.t) times.push(groups.t);
     const lastData = times.length ? Math.max(...times) : null;
     out.push({
       id: m.id,
@@ -222,14 +252,28 @@ export async function summarize(db: Db, ids: string[], viewerOrgId: string, now 
       position: pos
         ? { t: Number(pos.t), lat: pos.lat, lon: pos.lon, speed_kmh: pos.speed_kmh, course: pos.course }
         : null,
-      engine_hours: hours,
-      odometer,
+      engine_hours: sees('hours') ? hours : null,
+      odometer: sees('mileage') ? odometer : null,
       last_data_t: lastData,
       freshness: freshness(lastData, now),
-      sources: sources.rows
-        .filter((s) => s.machine_id === m.id)
-        .map((s) => ({ id: s.id, kind: s.kind, label: s.label, last_seen_at: ms(s.last_seen_at) })),
-      oil: oil.get(m.id) ?? null,
+      sources: sees('sources')
+        ? sources.rows
+            .filter((s) => s.machine_id === m.id)
+            .map((s) => ({ id: s.id, kind: s.kind, label: s.label, last_seen_at: ms(s.last_seen_at) }))
+        : [],
+      oil: sees('oil') ? (groups?.oil ?? null) : null,
+      engine: sees('engine') ? (groups?.engine ?? null) : null,
+      fuel: sees('fuel') ? (groups?.fuel ?? null) : null,
+      agro: sees('agro') ? (groups?.agro ?? null) : null,
+      faults: sees('faults')
+        ? faults.rows
+            .filter((f) => f.machine_id === m.id)
+            .map((f) => ({ spn: f.spn, fmi: f.fmi, oc: f.oc, lamp: f.lamp, t: Number(f.t), text: dtcText(f.spn, f.fmi) }))
+        : null,
+      tank_l: m.tank_l,
+      work_width_m: m.work_width_m,
+      protected: m.protected,
+      hidden: ALL_BLOCKS.filter((b) => !sees(b)),
     });
   }
   return out;
@@ -254,21 +298,30 @@ export async function gnssKmSince(db: Db, machineId: string, t: number, profile:
   return robustDistance(fixes, profile).km;
 }
 
-export async function latestSensors(db: Db, ids: string[]): Promise<Map<string, OilLatest>> {
+type Groups = { oil?: OilLatest; engine?: OilLatest; fuel?: OilLatest; agro?: OilLatest; t: number };
+
+/** Latest value of every sensor key, grouped by data block (oil / engine / fuel / agro). */
+export async function latestSensors(db: Db, ids: string[]): Promise<Map<string, Groups>> {
   const r = await db.query<any>(
     `select distinct on (machine_id, key) machine_id, key, value, (extract(epoch from t) * 1000)::float8 as t
-       from sensor_readings where machine_id = any($1::text[]) order by machine_id, key, t desc`,
+       from sensor_readings where machine_id = any($1::text[]) and t > now() - interval '400 days'
+      order by machine_id, key, t desc`,
     [ids],
   );
-  const out = new Map<string, OilLatest>();
+  const out = new Map<string, Groups>();
   for (const row of r.rows) {
-    const o = out.get(row.machine_id) ?? { values: {}, status: null, t: 0 };
+    const block = SENSORS[row.key]?.block;
+    if (block !== 'oil' && block !== 'engine' && block !== 'fuel' && block !== 'agro') continue;
+    const g = out.get(row.machine_id) ?? { t: 0 };
+    const o = (g[block] ??= { values: {}, status: null, t: 0 });
     const value = Number(row.value);
     o.values[row.key] = { value, t: Number(row.t), status: sensorStatus(row.key, value) };
     o.t = Math.max(o.t, Number(row.t));
-    out.set(row.machine_id, o);
+    g.t = Math.max(g.t, Number(row.t));
+    out.set(row.machine_id, g);
   }
-  for (const o of out.values()) o.status = worst(Object.values(o.values).map((v) => v.status));
+  for (const g of out.values())
+    for (const o of [g.oil, g.engine, g.fuel, g.agro]) if (o) o.status = worst(Object.values(o.values).map((v) => v.status));
   return out;
 }
 

@@ -1,5 +1,8 @@
 // Source of truth for the database schema. Idempotent: safe to run on every cold start.
-export const SCHEMA_VERSION = '3';
+export const SCHEMA_VERSION = '4';
+
+const ROLE_CHECK = `('superadmin', 'admin', 'analyst', 'engineer', 'dispatcher', 'mechanic', 'viewer', 'operator')`;
+const SOURCE_KINDS = `('tracker', 'phone', 'osmand', 'traccar', 'wialon', 'aemp', 'manual')`;
 
 export const SCHEMA_SQL = `
 -- ITles platform schema (PostgreSQL 15+; also runs on PGlite for tests).
@@ -30,7 +33,7 @@ create table if not exists users (
   org_id text not null references orgs(id),
   login text not null unique,
   pass_hash text not null,
-  role text not null check (role in ('admin', 'member')),
+  role text not null,
   label text,
   disabled boolean not null default false,
   created_at timestamptz not null default now()
@@ -46,7 +49,7 @@ create table if not exists sessions (
 create table if not exists invites (
   code_hash text primary key,
   org_id text not null references orgs(id),
-  role text not null check (role in ('admin', 'member')),
+  role text not null,
   created_by text references users(id),
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
@@ -89,7 +92,7 @@ create table if not exists sources (
   id text primary key,
   org_id text not null references orgs(id),
   machine_id text references machines(id),
-  kind text not null check (kind in ('tracker', 'phone', 'traccar', 'wialon', 'aemp', 'manual')),
+  kind text not null,
   connector_id text references connectors(id),
   external_id text,
   label text,
@@ -218,4 +221,123 @@ create table if not exists audit_log (
   action text not null,
   details jsonb
 );
+
+-- v4: role hierarchy, per-user data blocks, trash (soft delete with restore), demo tenant,
+-- gateway keys, live stand, J1939 faults and geofences.
+alter table orgs add column if not exists is_demo boolean not null default false;
+alter table orgs add column if not exists protected boolean not null default false;
+alter table orgs add column if not exists deleted_at timestamptz;
+alter table orgs add column if not exists deleted_by text;
+alter table orgs add column if not exists delete_batch text;
+
+alter table users add column if not exists blocks jsonb not null default '{}';
+alter table users add column if not exists machine_ids text[];
+alter table users add column if not exists protected boolean not null default false;
+alter table users add column if not exists deleted_at timestamptz;
+alter table users add column if not exists deleted_by text;
+alter table users add column if not exists delete_batch text;
+alter table users add column if not exists last_login_at timestamptz;
+
+alter table machines add column if not exists protected boolean not null default false;
+alter table machines add column if not exists deleted_at timestamptz;
+alter table machines add column if not exists deleted_by text;
+alter table machines add column if not exists delete_batch text;
+alter table machines add column if not exists work_width_m real;
+alter table machines add column if not exists tank_l real;
+update machines set deleted_at = now() where archived and deleted_at is null;
+
+alter table sources add column if not exists meta jsonb;
+alter table audit_log add column if not exists target_org text;
+create index if not exists audit_log_t on audit_log(t desc);
+
+alter table users drop constraint if exists users_role_check;
+alter table invites drop constraint if exists invites_role_check;
+alter table sources drop constraint if exists sources_kind_check;
+-- the first FUCHS administrator (created by setup) owns the service
+update users set role = 'superadmin' where id = (
+  select u.id from users u join orgs o on o.id = u.org_id
+   where o.kind = 'fuchs' and u.role = 'admin' and not exists (select 1 from users x where x.role = 'superadmin')
+   order by u.created_at limit 1);
+update users u set role = case o.kind when 'fuchs' then 'analyst' when 'distributor' then 'engineer' else 'viewer' end
+  from orgs o where o.id = u.org_id and u.role = 'member';
+update invites i set role = case o.kind when 'fuchs' then 'analyst' when 'distributor' then 'engineer' else 'viewer' end
+  from orgs o where o.id = i.org_id and i.role = 'member';
+alter table users add constraint users_role_check check (role in ${ROLE_CHECK});
+alter table invites add constraint invites_role_check check (role in ${ROLE_CHECK});
+alter table sources add constraint sources_kind_check check (kind in ${SOURCE_KINDS});
+
+create table if not exists settings (
+  key text primary key,
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+-- API keys of TCP gateways (in addition to the GATEWAY_TOKEN environment variable); only hashes are stored
+create table if not exists gateway_keys (
+  id text primary key,
+  label text not null,
+  key_hash text not null unique,
+  created_by text,
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz
+);
+
+-- Live stand (simulated fleet → trackers → gateway/Traccar): latest status, recent packets, commands
+create table if not exists stand_status (
+  stand_id text primary key,
+  reported_at timestamptz not null default now(),
+  payload jsonb not null default '{}',
+  last_viewed_at timestamptz
+);
+create table if not exists stand_events (
+  id bigserial primary key,
+  stand_id text not null,
+  t timestamptz not null,
+  kind text not null,
+  imei text,
+  summary text not null,
+  payload jsonb
+);
+create index if not exists stand_events_recent on stand_events(stand_id, id desc);
+create table if not exists stand_commands (
+  id text primary key,
+  stand_id text,
+  imei text,
+  command text not null,
+  params jsonb,
+  status text not null default 'queued',
+  created_by text,
+  created_at timestamptz not null default now(),
+  taken_at timestamptz,
+  done_at timestamptz,
+  result text
+);
+create index if not exists stand_commands_status on stand_commands(status, created_at);
+
+-- J1939 DM1 diagnostic trouble codes as reported (one row per code per report time)
+create table if not exists fault_events (
+  source_id text not null references sources(id),
+  t timestamptz not null,
+  machine_id text not null references machines(id),
+  spn int not null,
+  fmi smallint not null,
+  oc smallint,
+  lamp smallint,
+  primary key (source_id, t, spn, fmi)
+);
+create index if not exists fault_events_machine on fault_events(machine_id, t);
+
+-- Geofences (fields, cutting areas, quarries): GeoJSON polygon in WGS-84, geodesic area
+create table if not exists geofences (
+  id text primary key,
+  org_id text not null references orgs(id),
+  name text not null,
+  kind text not null default 'other',
+  geometry jsonb not null,
+  area_ha double precision,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+create index if not exists geofences_org on geofences(org_id);
 `;

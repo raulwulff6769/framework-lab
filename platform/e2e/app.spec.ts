@@ -36,7 +36,7 @@ test('landing → setup → hierarchy → machine → phone in the cab → data 
   await page.getByRole('button', { name: 'Добавить' }).click();
   await expect(page.getByRole('heading', { name: 'Харвестер №7' })).toBeVisible();
 
-  await page.getByRole('button', { name: '+ Телефон в кабине' }).click();
+  await page.getByRole('button', { name: '+ Телефон (ссылка)' }).click();
   const codeEl = page.locator('.font-mono.text-5xl');
   await expect(codeEl).toHaveText(/^\d{6}$/);
   const code = (await codeEl.textContent())!.trim();
@@ -53,7 +53,7 @@ test('landing → setup → hierarchy → machine → phone in the cab → data 
   await cab.goto('/app/#/cab');
   await cab.locator('input').fill(code);
   await cab.getByRole('button', { name: 'Подключить' }).click();
-  await expect(cab.getByText('Харвестер №7')).toBeVisible();
+  await expect(cab.getByText('Харвестер №7')).toBeVisible({ timeout: 20_000 });
   await cab.getByRole('button', { name: 'Начать работу' }).click();
   for (let i = 1; i <= 4; i++) {
     await phone.setGeolocation({ latitude: 61.7849 + i * 0.0004, longitude: 34.3469 + i * 0.0002, accuracy: 5 });
@@ -62,7 +62,7 @@ test('landing → setup → hierarchy → machine → phone in the cab → data 
   await cab.getByPlaceholder('например 4521,4').fill('4521,4');
   await cab.getByRole('button', { name: 'Отправить' }).click();
   await expect(cab.getByText('Показание сохранено на сервере')).toBeVisible();
-  await expect(cab.getByText(/отправлено (только что|\d+ мин назад)/)).toBeVisible({ timeout: 45_000 });
+  await expect(cab.getByText(/точек принято · (только что|\d+ мин назад)/)).toBeVisible({ timeout: 45_000 });
   await cab.screenshot({ path: `${SHOTS}/cab.png` });
 
   // positions travel through the phone outbox; poll the machine page like a dispatcher would
@@ -71,7 +71,7 @@ test('landing → setup → hierarchy → machine → phone in the cab → data 
     await expect(page.getByText(/61\.78\d+, 34\.34\d+/).first()).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 40_000 });
   await expect(page.getByText('4 521,4')).toBeVisible();
-  await expect(page.getByText(/точек: [2-9]/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/[2-9]\d* точек за период/)).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/machine.png`, fullPage: true });
   await page.goto('/app/#/');

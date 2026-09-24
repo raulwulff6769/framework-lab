@@ -128,3 +128,22 @@ body {
   color: #ededed;
   border: 1px solid #1f1f1f;
 }
+
+/* knowledge base prose */
+.kb ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.kb ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.kb li {
+  margin: 0.2rem 0;
+}
+.kb code {
+  border-radius: 0.25rem;
+  background: var(--muted);
+  padding: 0 0.25rem;
+  font-size: 0.85em;
+}

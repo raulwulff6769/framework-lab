@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Me } from '../main';
+import { can, type Me } from '../perm';
 import { api, ago } from '../api';
 import { ErrorLine, useAsync } from '../ui';
 
@@ -102,7 +102,7 @@ export function Connect({ me }: { me: Me }) {
         ))}
         {list.data?.connectors?.length === 0 && <div className="p-4 text-sm text-muted-foreground">Подключений пока нет.</div>}
       </div>
-      {me.role === 'admin' && (
+      {can(me, 'connectors.manage') && (
         <form onSubmit={submit} className="card space-y-4 p-5">
           <div className="flex flex-wrap gap-2">
             {KINDS.map((x) => (

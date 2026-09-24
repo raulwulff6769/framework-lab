@@ -10,6 +10,8 @@ let fuchs = '';
 let dist = '';
 let owner = '';
 let member = '';
+let dispatcher = '';
+let mechanic = '';
 let distOrg = '';
 let custOrg = '';
 let machineId = '';
@@ -63,8 +65,12 @@ describe('platform API end-to-end (PGlite)', () => {
     custOrg = c.data.org.id;
     const inv2 = await call('POST', `/api/orgs/${custOrg}/invites`, { role: 'admin' }, dist);
     owner = await redeem(inv2.data.code, 'taiga-glavny');
-    const inv3 = await call('POST', `/api/orgs/${custOrg}/invites`, { role: 'member' }, owner);
-    member = await redeem(inv3.data.code, 'taiga-dispatcher');
+    const inv3 = await call('POST', `/api/orgs/${custOrg}/invites`, { role: 'viewer' }, owner);
+    member = await redeem(inv3.data.code, 'taiga-viewer');
+    const inv4 = await call('POST', `/api/orgs/${custOrg}/invites`, { role: 'dispatcher' }, owner);
+    dispatcher = await redeem(inv4.data.code, 'taiga-dispatcher');
+    const inv5 = await call('POST', `/api/orgs/${custOrg}/invites`, { role: 'mechanic' }, owner);
+    mechanic = await redeem(inv5.data.code, 'taiga-mechanic');
 
     const custOrgs = await call('GET', '/api/orgs', undefined, owner);
     expect(custOrgs.data.orgs.map((o: any) => o.id)).toEqual([custOrg]);
@@ -74,7 +80,7 @@ describe('platform API end-to-end (PGlite)', () => {
     expect(cantCreate.status).toBe(403);
   });
 
-  it('only admins manage the fleet; machines belong to customers', async () => {
+  it('read-only roles cannot add machines; machines belong to customers', async () => {
     const denied = await call('POST', '/api/machines', { name: 'Экскаватор', org_id: custOrg }, member);
     expect(denied.status).toBe(403);
     const wrongOrg = await call('POST', '/api/machines', { name: 'X', org_id: distOrg }, dist);
@@ -130,9 +136,11 @@ describe('platform API end-to-end (PGlite)', () => {
 
   it('dashboard readings become the ground truth and calibrate the estimate', async () => {
     const t0 = Date.now() - 3600e3;
-    const r = await call('POST', `/api/machines/${machineId}/readings`, { metric: 'engine_hours', value: 4521.0, t: new Date(t0).toISOString() }, member);
+    const viewerDenied = await call('POST', `/api/machines/${machineId}/readings`, { metric: 'engine_hours', value: 4521.0 }, member);
+    expect(viewerDenied.status).toBe(403);
+    const r = await call('POST', `/api/machines/${machineId}/readings`, { metric: 'engine_hours', value: 4521.0, t: new Date(t0).toISOString() }, dispatcher);
     expect(r.status).toBe(201);
-    const dec = await call('POST', `/api/machines/${machineId}/readings`, { metric: 'engine_hours', value: 4000, t: new Date().toISOString() }, member);
+    const dec = await call('POST', `/api/machines/${machineId}/readings`, { metric: 'engine_hours', value: 4000, t: new Date().toISOString() }, dispatcher);
     expect(dec.status).toBe(409);
     const det = await call('GET', `/api/machines/${machineId}`, undefined, owner);
     const cal = det.data.calibrations.find((c: any) => c.metric === 'engine_hours');
@@ -254,7 +262,9 @@ describe('platform API end-to-end (PGlite)', () => {
     const ov = await call('GET', '/api/service/overview', undefined, fuchs);
     expect(ov.data.items).toHaveLength(1);
     expect(ov.data.items[0].org).toBe('Леспромхоз «Тайга»');
-    const done = await call('POST', `/api/service/${f.id}/done`, { at_h: 4600 }, member);
+    const denied = await call('POST', `/api/service/${f.id}/done`, { at_h: 4600 }, member);
+    expect(denied.status).toBe(403);
+    const done = await call('POST', `/api/service/${f.id}/done`, { at_h: 4600 }, mechanic);
     expect(done.data.last_done_h).toBe(4600);
   });
 

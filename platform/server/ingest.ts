@@ -22,6 +22,8 @@ export interface IngestRecord {
   odometer_km?: number | null;
   odometer_method?: RawMethod;
   sensors?: Record<string, number> | null;
+  /** active J1939 DM1 codes at time t (an empty list means "no active faults") */
+  dtc?: Array<{ spn: number; fmi: number; oc?: number | null; lamp?: number | null }> | null;
 }
 
 export interface SourceRow {
@@ -35,6 +37,7 @@ export interface IngestResult {
   positions: number;
   counters: number;
   sensors: number;
+  faults: number;
   duplicates: number;
   location_dropped: number;
   rejected: Array<{ index: number; reason: string }>;
@@ -71,11 +74,12 @@ interface MachineRow {
   rotating_upper: boolean;
   category: string;
   tz: string;
+  archived: boolean;
 }
 
 export async function loadMachine(db: Db, id: string): Promise<MachineRow | null> {
   const r = await db.query<MachineRow>(
-    `select m.id, m.org_id, m.location_enabled, m.chassis, m.rotating_upper, m.category, o.tz
+    `select m.id, m.org_id, m.location_enabled, m.chassis, m.rotating_upper, m.category, o.tz, m.archived
        from machines m join orgs o on o.id = m.org_id where m.id = $1`,
     [id],
   );
@@ -88,17 +92,23 @@ export async function ingestForSource(
   records: IngestRecord[],
   now = Date.now(),
 ): Promise<IngestResult> {
-  const res: IngestResult = { positions: 0, counters: 0, sensors: 0, duplicates: 0, location_dropped: 0, rejected: [] };
+  const res: IngestResult = { positions: 0, counters: 0, sensors: 0, faults: 0, duplicates: 0, location_dropped: 0, rejected: [] };
   if (!source.machine_id) {
     records.forEach((_, i) => res.rejected.push({ index: i, reason: 'source_not_assigned' }));
     return res;
   }
   const machine = await loadMachine(db, source.machine_id);
   if (!machine) throw new Error('machine missing for source ' + source.id);
+  if (machine.archived) {
+    // the machine is in the trash: nothing is stored, the sender must not retry
+    records.forEach((_, i) => res.rejected.push({ index: i, reason: 'machine_deleted' }));
+    return res;
+  }
 
   const pos = new Map<number, unknown[]>();
   const cnt = new Map<string, unknown[]>();
   const sen = new Map<string, unknown[]>();
+  const flt = new Map<string, unknown[]>();
   let attemptedPos = 0;
   let attemptedCnt = 0;
 
@@ -166,6 +176,20 @@ export async function ingestForSource(
         useful = true;
       }
     }
+    if (Array.isArray(r.dtc)) {
+      useful = true;
+      for (const d of r.dtc.slice(0, 64)) {
+        const spn = num(d?.spn);
+        const fmi = num(d?.fmi);
+        if (spn === null || fmi === null || spn < 0 || spn > 524287 || fmi < 0 || fmi > 31 || !Number.isInteger(spn) || !Number.isInteger(fmi)) {
+          badSensor = true;
+          continue;
+        }
+        const oc = inRange(num(d.oc), 0, 127);
+        const lamp = inRange(num(d.lamp), 0, 4);
+        flt.set(`${spn}|${fmi}|${t}`, [source.id, new Date(t).toISOString(), machine.id, spn, fmi, oc, lamp]);
+      }
+    }
     // other values of the record are still stored; one reason per record, never retried
     if (badSensor) res.rejected.push({ index: i, reason: 'bad_sensor' });
     else if (!useful) res.rejected.push({ index: i, reason: 'no_data' });
@@ -191,6 +215,12 @@ export async function ingestForSource(
     'sensor_readings (source_id, key, t, machine_id, value)',
     senRows,
     'on conflict (source_id, key, t) do nothing',
+  );
+  res.faults = await insertMany(
+    db,
+    'fault_events (source_id, t, machine_id, spn, fmi, oc, lamp)',
+    [...flt.values()],
+    'on conflict (source_id, t, spn, fmi) do nothing',
   );
   res.duplicates = attemptedPos + attemptedCnt + senRows.length - res.positions - res.counters - res.sensors;
 
