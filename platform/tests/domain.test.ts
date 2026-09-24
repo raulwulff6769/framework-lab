@@ -41,6 +41,22 @@ describe('fuel level analysis', () => {
     const rate = level.map((p) => ({ t: p.t, v: 72 }));
     expect(analyzeFuel(level, rate).events).toEqual([]);
   });
+  it('finds a refill across a gap of a parked tracker that writes once an hour', () => {
+    // evening shift every 5 min down to 380 l, hourly points parked overnight, the tank is filled
+    // before the morning shift, then work again (no fuel-rate sensor, like the Galileosky mapping)
+    const level: Array<{ t: number; v: number }> = [];
+    let t = t0;
+    let v = 700;
+    for (let i = 0; i < 40; i++, t += 5 * 60e3) level.push({ t, v: (v -= 8) });
+    for (let i = 0; i < 4; i++, t += 3600e3) level.push({ t, v });
+    t += 3.5 * 3600e3;
+    v = 950;
+    for (let i = 0; i < 30; i++, t += 5 * 60e3) level.push({ t, v: (v -= 8) });
+    const a = analyzeFuel(level, [], { tankL: 1000 });
+    expect(a.events.map((e) => e.kind)).toEqual(['refill']);
+    expect(a.events[0].litres).toBeCloseTo(950 - 8 - 380, 0);
+    expect(a.consumed_l!).toBeCloseTo((39 + 29) * 8, 0); // observed drops between points; the refill itself is excluded
+  });
 });
 
 describe('worked area and geodesy', () => {

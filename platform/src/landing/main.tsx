@@ -3,10 +3,11 @@ import '../styles.css';
 import { ThemeToggle } from '../app/main-toggle';
 
 const REL = 'https://github.com/clutteredcal/ITles/releases/download/v0.3.0';
+const ANDROID_APK = 'https://github.com/raulwulff6769/framework-lab/releases/download/android-2026.09.24/itles-android.apk';
 const DOWNLOADS = [
-  { os: 'Android', file: `${REL}/ITles.apk`, note: 'Кабинет и режим «Телефон в кабине». Файл APK, Android 7+.' },
+  { os: 'Android', file: ANDROID_APK, note: 'Кабинет и «Телефон в кабине» с фоновой геолокацией (работает при выключенном экране). APK, Android 7+.' },
   { os: 'Windows', file: `${REL}/ITles-Windows-x64.zip`, note: 'Windows 10/11 x64: распакуйте и запустите ITles.exe.' },
-  { os: 'iPhone / iPad', file: './app/', note: 'Safari → «Поделиться» → «На экран Домой».' },
+  { os: 'iPhone / iPad', file: './app/', note: 'Кабинет: Safari → «Поделиться» → «На экран Домой». Для GPS в фоне — Traccar Client из App Store.' },
   { os: 'Веб-кабинет', file: './app/', note: 'Любой браузер, без установки.' },
 ];
 
@@ -124,7 +125,8 @@ function Landing() {
         <div className="mx-auto max-w-6xl px-6 py-14">
           <h2 className="text-2xl font-semibold tracking-tight">Скачать</h2>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            APK и Windows ZIP — прежние сборки v0.3.0 из <a className="underline" href="https://github.com/clutteredcal/ITles/releases/tag/v0.3.0">другой копии ITles</a>. Они не собраны из текущего коммита <a className="underline" href="https://github.com/somemateria/biildfe4">исходников ITles</a>.
+            APK для Android — <a className="underline" href="https://github.com/raulwulff6769/framework-lab/releases/tag/android-2026.09.24">сборка 24.09.2026</a> из текущих исходников. Windows ZIP — прежняя сборка v0.3.0 из{' '}
+            <a className="underline" href="https://github.com/clutteredcal/ITles/releases/tag/v0.3.0">другой копии ITles</a>, не из текущего коммита.
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-4">
             {DOWNLOADS.map((d) => (

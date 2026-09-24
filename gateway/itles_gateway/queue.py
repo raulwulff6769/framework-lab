@@ -124,5 +124,19 @@ class DurableQueue:
         with self.lock:
             return self.db.execute("select count(*) from q").fetchone()[0]
 
+    def unpark(self, ext_ids: list[str]) -> int:
+        """Retry parked records of devices that were just registered on the platform, without waiting."""
+        if not ext_ids:
+            return 0
+        with self.lock:
+            cur = self.db.execute(
+                f"update q set next_try = 0 where last_error = 'unknown_device' and ext_id in ({','.join('?' * len(ext_ids))})", ext_ids
+            )
+            return cur.rowcount
+
+    def by_device(self) -> dict[str, int]:
+        with self.lock:
+            return dict(self.db.execute("select ext_id, count(*) from q group by ext_id").fetchall())
+
     def close(self) -> None:
         self.db.close()

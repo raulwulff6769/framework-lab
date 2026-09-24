@@ -232,7 +232,8 @@ export function Bars({ data, unit, color = 'var(--primary)' }: { data: Array<{ l
   return (
     <div className="flex h-40 items-end gap-1">
       {data.map((d) => (
-        <div key={d.label} className="relative flex flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.value === null ? 'нет данных' : d.value.toFixed(1) + ' ' + unit}`}>
+        // h-full: with items-end the column is only as tall as its content and the % bar height collapses to 0
+        <div key={d.label} className="relative flex h-full flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.value === null ? 'нет данных' : d.value.toFixed(1) + ' ' + unit}`}>
           <div className="w-full rounded-t" style={{ height: `${((d.value ?? 0) / max) * 100}%`, minHeight: d.value ? 2 : 0, background: color }} />
           <div className="mt-1 hidden text-[10px] text-muted-foreground sm:block">{d.label.slice(8)}</div>
         </div>

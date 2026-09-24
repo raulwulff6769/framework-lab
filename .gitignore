@@ -25,3 +25,9 @@ apps/mobile/android/.gradle/
 apps/mobile/android/build/
 apps/mobile/android/local.properties
 .hoplite/artifacts/
+
+# live stand: local secrets and runtime data
+stand/stand.env
+stand/nohup.log
+.stand/
+stand-state.json

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ITles — от датчика на машине до данных в сервисе</title>
+  <style>
+    @page { size: A4; margin: 17mm 18mm 19mm; }
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html { font-size: 10pt; }
+    body {
+      margin: 0;
+      color: #182433;
+      background: #edf1f5;
+      font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
+      font-size: 9.6pt;
+      line-height: 1.42;
+    }
+    main {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 18px auto;
+      padding: 17mm 18mm;
+      background: #fff;
+      box-shadow: 0 2mm 8mm #1524381c;
+    }
+    h1, h2, h3, p, ul, ol, blockquote, table { margin-top: 0; }
+    h1 {
+      margin: 0 0 7mm;
+      padding-bottom: 5mm;
+      border-bottom: 1.1pt solid #9daaba;
+      color: #122d46;
+      font-family: "Liberation Serif", "DejaVu Serif", serif;
+      font-size: 27pt;
+      font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -.25pt;
+    }
+    h1 + p { font-size: 11pt; line-height: 1.45; }
+    h2 {
+      margin: 8mm 0 3mm;
+      padding-bottom: 1.5mm;
+      border-bottom: .5pt solid #c7ced7;
+      color: #123653;
+      font-size: 15pt;
+      line-height: 1.2;
+      break-after: avoid-page;
+    }
+    h3 {
+      margin: 5mm 0 2mm;
+      color: #244763;
+      font-size: 11.3pt;
+      line-height: 1.25;
+      break-after: avoid-page;
+    }
+    p { margin-bottom: 2.6mm; }
+    ul, ol { margin: 1mm 0 3mm; padding-left: 6mm; }
+    li { margin: 0 0 1.2mm; padding-left: .5mm; }
+    blockquote {
+      margin: 4mm 0;
+      padding: 3mm 4mm;
+      border-left: 2.2pt solid #285b7d;
+      background: #f1f5f8;
+      color: #183a53;
+      font-size: 11.4pt;
+      font-weight: 700;
+      break-inside: avoid-page;
+    }
+    table {
+      width: 100%;
+      margin: 3mm 0 4mm;
+      border-collapse: collapse;
+      font-size: 7.8pt;
+      line-height: 1.3;
+      table-layout: fixed;
+      break-inside: avoid-page;
+    }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid-page; }
+    th, td {
+      padding: 1.6mm 1.7mm;
+      border: .5pt solid #aeb8c4;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+    th { background: #e9eef3; color: #1b354d; font-weight: 700; text-align: left; }
+    code { font-family: "DejaVu Sans Mono", monospace; font-size: .92em; }
+    a { color: #1c4f76; overflow-wrap: anywhere; text-decoration: underline; text-decoration-thickness: .35pt; }
+    .sources-heading { break-before: page; }
+    .source { margin: 0 0 2mm; font-size: 7.5pt; line-height: 1.3; break-inside: avoid-page; }
+    @media screen {
+      main { border: 1px solid #d8dee6; }
+    }
+    @media print {
+      body { background: #fff; font-size: 9.2pt; }
+      main { width: auto; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none; }
+      h2 { margin-top: 6mm; }
+      a { color: #163d5a; }
+    }
+  </style>
+</head>
+<body><main><h1>ITles: от датчика на машине до данных в сервисе</h1>
+<p><strong>Инженерная инструкция владельцу сервиса</strong><br> <strong>Версия 1.0 · 24 сентября 2026 года</strong></p>
+<p>Документ описывает типовую цепочку и способы подключить уже установленное оборудование. Это не каталог гарантированной совместимости и не акт испытаний на машине.</p>
+<blockquote><p><strong>Коротко:</strong> датчик или ЭБУ (электронный блок управления) → CAN/J1939 (цифровая сеть машины) либо входы трекера → ГЛОНАСС/GPS-трекер → SIM для M2M (межмашинной связи) и мобильная сеть → сервер-приёмник → API (программный интерфейс) ITles.</p></blockquote>
+<p><strong>Граница доказательств.</strong> В репозитории есть декодеры реальных протокольных форматов и сквозные тесты с синтетическими данными; для части форматов используются тестовые пакеты Traccar. Названия машин, идентификаторы устройств и данные парка в <code>platform/server/demo-fleet.json</code> помечены как демонстрационные. Монтаж на физическую машину и полевые испытания пока не подтверждены. Поэтому точность и совместимость ниже описаны как требования к проверке, а не как уже доказанный результат [1–3].</p>
+<h2>1. Что именно передаёт данные</h2>
+<p><strong>Датчик</strong> измеряет физическую величину (например, уровень топлива); <strong>ЭБУ</strong> — электронный блок управления двигателем, который может выдавать моточасы и другие параметры по бортовой сети. <strong>CAN</strong> — двухпроводная цифровая сеть машины. В грузовой и специальной технике часто применяется <strong>J1939</strong>, набор правил и кодов для этой сети: отдельный параметр обозначается SPN, сообщение — PGN. Сам факт наличия разъёма CAN не означает, что нужное значение доступно или регулярно передаётся: для моточасов двигателя SPN 247 некоторым ЭБУ требуется запрос; набор параметров зависит от машины и её прошивки [2, 23].</p>
+<p>Если установлен распространённый диагностический разъём J1939 Deutsch на 9 контактов, в исполнении Type I (обычно чёрный) контакты обычно обозначены: <strong>A — масса, B — питание +12/24 В, C — CAN_H (линия высокого уровня), D — CAN_L (линия низкого уровня); скорость шины Type I — 250 кбит/с</strong>. Type II может работать на 500 кбит/с. Это ориентир для стандартного разъёма, а не универсальная распиновка всех сервисных разъёмов: сверяйте руководство машины и не подавайте питание наугад [23].</p>
+<p>Когда CAN отсутствует или параметр оттуда не доступен, трекер может использовать:</p>
+<ul><li><strong>дискретный вход</strong> — состояние «вкл./выкл.»; например, безопасно подключённый сигнал работы двигателя;</li><li><strong>аналоговый вход</strong> — напряжение датчика, которое затем калибруют в единицы измерения;</li><li><strong>RS-485</strong> — электрический интерфейс для цифрового датчика; протокол и таблица регистров определяют, как прочитать значение. RS-485 сам по себе не означает Modbus;</li><li><strong>частотный вход</strong> — импульсы с частотой, соответствующей измеряемому сигналу.</li></ul>
+<p>Трекер объединяет эти показания с координатами глобальных навигационных спутниковых систем (<strong>GNSS</strong>, здесь ГЛОНАСС/GPS), временем и идентификатором устройства. Обычно это IMEI — заводской номер модема/терминала. Трекер записывает точки во внутренний архив, когда сеть недоступна, и отправляет их через модем. <strong>M2M-SIM</strong> — SIM-карта и тариф для связи между устройствами «машина—сервер»; она регистрируется в сети оператора. Связь зависит от покрытия, тарифа и APN (имени точки доступа).</p>
+<p>На сервере-приёмнике <strong>шлюз</strong> принимает TCP-соединение (сетевой канал от трекера), разбирает протокол и ставит записи в очередь; затем передаёт их по HTTPS (защищённому веб-соединению) в API — программный интерфейс обмена ITles. Либо ITles забирает данные через API существующей платформы. TCP и HTTPS — способы доставки, не названия телеметрических форматов. Нужна публичная точка приёма TCP: Vercel обслуживает веб-запросы, но не входящие TCP-подключения трекеров; шлюзу нужен VPS (виртуальный сервер с доступом из интернета) или другой сервер с открытым портом [1, 3].</p>
+<h2>2. Оборудование и платформы, встречающиеся в РФ</h2>
+<p>Это примеры семейств из российских каталогов и конфигураций; список не является рейтингом продаж. Совместимость определяется точной моделью, прошивкой и настроенным протоколом.</p>
+<table><thead><tr><th>Пример семейства</th><th>Что проверить до подключения</th></tr></thead><tbody><tr><td><strong>Galileosky 10/10 Plus, 7.x</strong></td><td>Сверить модем, антенны, CAN/J1939-профиль, RS-485-алгоритм и настройки серверов. Вариант 10 Plus LTE (4G) Ext с CAN и RS-485 указан за ≈24 260 ₽; цены других моделей/ревизий здесь не проверены [4, 5].</td></tr><tr><td><strong>Навтелеком СМАРТ / СИГНАЛ</strong></td><td>Проверить модель, модем, прошивку и профили CAN/RS-485. Карточки SMART S-2435 и СИГНАЛ S-2653: ≈8 500/12 700 ₽, оба 2G (сеть второго поколения); не рекомендация для новой закупки без проверки покрытия [6, 7].</td></tr><tr><td><strong>Omnicomm Profi / датчики LLS</strong></td><td>Цена терминала Profi здесь не проверена. Сверить протокол и скорость порта; LLS 5 измеряет уровень в баке, не состояние моторного масла [9].</td></tr><tr><td><strong>АвтоГРАФ, Arnavi, СКАУТ</strong></td><td>Цены конкретных моделей в этом срезе не проверялись. Сверить ревизию, связь, выход датчика и поддерживаемый формат. Arnavi A4, например, заявляет 4G, RS-485 и входы датчиков; у СКАУТ есть модели с CAN/RS-485 [18]. Наличие бренда не доказывает совместимость с ITles.</td></tr><tr><td><strong>Teltonika FMC/FMB</strong></td><td>Цена здесь не проверена; рассматривать прежде всего как уже установленное оборудование. В 2022 году группа объявила остановку продаж в РФ. Если встречается параллельная/«серая» поставка, карточка продавца не подтверждает официальный канал, поддержку или гарантию [17].</td></tr><tr><td><strong>CAN-LOG, CANCrocodile</strong></td><td>Дополнительные считыватели, если встроенного профиля недостаточно. CANCrocodile указан за ≈4 700 ₽; CAN-LOG B34 — ≈10 000 ₽. Проверить список параметров для конкретной машины: адаптер не гарантирует доступность SPN [8].</td></tr></tbody></table>
+<p>Датчики уровня топлива, встречающиеся в российских проектах: <strong>Omnicomm LLS 5, Эскорт ТД-150, Технотон DUT-E</strong>. Они бывают с цифровым RS-485, аналоговым или частотным выходом в зависимости от версии. Перед покупкой нужны длина зонда, геометрия бака, схема установки и точный протокол датчика. Для бака неправильной формы необходима тарировка — калибровочная таблица уровня к объёму. Цены из интернет-магазина — только ориентир; длина, комплектация и совместимость могут отличаться [9–11].</p>
+<p>Из платформ, к которым владелец может уже иметь доступ: <strong>Wialon Local</strong> (локально развёрнутая система), <strong>Omnicomm Online</strong>, <strong>ГЛОНАССсофт</strong>, <strong>Fort Monitor</strong> и <strong>Traccar</strong>. Traccar — открытая платформа для самостоятельного сервера; приложение Traccar Client может отправлять позиции телефона. Российские интеграторы также используют собственные платформы. Сначала выясните, где реально хранятся данные и можно ли выдать доступ только на чтение [19, 20].</p>
+<p><strong>Wialon Hosting не следует считать доступным из РФ по умолчанию.</strong> В уведомлении партнёрам в 2024 году указывались запрет использования в РФ с 4 июля и блокировка по российским IP-адресам (сетевым адресам) с 2 сентября 2024 года, с прекращением поддержки и взаимодействия с российским бизнесом. В проектной документации сохранён замер: 10 из 10 проверок из РФ получили код 403 (доступ запрещён) 23.09.2026. Это не гарантия для каждого адреса и не утверждение о юридическом прекращении существования компании; Wialon Local — отдельный вариант при наличии работающего сервера и доступа [1, 16].</p>
+<h2>3. Как передать данные в ITles</h2>
+<p><strong>Прямой поток:</strong> машина → трекер → мобильная сеть → TCP-порт шлюза ITles → очередь SQLite (встраиваемая файловая база данных) → HTTPS → API и база ITles. <strong>Поток через платформу:</strong> трекер → платформа владельца → API-соединитель ITles. Второй путь обычно предпочтительнее, если существующая платформа отдаёт требуемые данные и владелец разрешает доступ только на чтение.</p>
+<p>В текущем коде шлюз принимает <strong>Galileosky, EGTS, Wialon IPS 2.0, Wialon Retranslator и ограниченный Navtelecom FLEX 1.0/2.0</strong>. FLEX — протокол обмена Навтелекома; незашифрованный NTCB <code>@NTC</code> используется только для идентификации и согласования FLEX, старые команды телеметрии NTCB не принимаются. FLEX 3.0 снижается до 2.0, часть расширений не поддерживается. Соединители ITles умеют получать данные по API от <strong>Traccar, Wialon и AEMP 2.0</strong> (стандартный интерфейс телематики производителей техники). Это не означает, что все модели бренда поддерживаются без настройки. Например, Teltonika в демонстрационном парке идёт через Traccar, а не напрямую в шлюз ITles [3, 5].</p>
+<p><strong>EGTS</strong> — формат передачи телеметрии, используемый в инфраструктуре спутниковой навигации РФ. Его требования описаны, в частности, в приложениях к ГОСТ 33472-2015 и ГОСТ 33465-2015. Стандарт связи не назначает каждому терминалу одно и то же поле моточасов: значение может требовать настройки счётчика по IMEI или приходить из другого источника [2, 23].</p>
+<p>Если трекер уже передаёт данные другой платформе, сначала запросите API-доступ с правами только на чтение. Если API недоступен, настройте у провайдера <strong>ретрансляцию</strong> — повторную отправку записей на второй сервер — по EGTS или Wialon Retranslator, если это поддерживает его платформа.</p>
+<p><strong>Не меняйте производственный протокол Galileosky ради ITles.</strong> У него два адреса серверов, но одна настройка <code>Protocol n</code> действует для обоих. Если основной сервер получает EGTS, второй тоже получит EGTS; сначала подтвердите, что шлюз и маппинг ITles готовы принять именно его. Серверы обслуживаются по очереди, поэтому задержка второго потока может быть равна длительности сеанса. У Навтелеком формат можно задавать отдельно для серверов, но совместимость конкретного терминала всё равно требует проверки [2].</p>
+<h2>4. Три типовые схемы и бюджет на одну машину</h2>
+<h3>Случай A. Новая машина с CAN J1939</h3>
+<ol><li>По руководству машины найдите CAN-разъём и подтвердите скорость шины, профиль J1939/FMS (FMS — согласованный профиль данных для мониторинга коммерческой техники) и доступность нужных параметров. Для моточасов отдельно спросите, выдаёт ли ЭБУ SPN 247 сам или отвечает только на запрос трекера.</li><li>Выберите трекер с нужными CAN-декодером, модемом LTE и поддерживаемым выходным протоколом. Подключение к бортовой сети и CAN поручите установщику; сначала считывайте данные, не посылая управляющих команд в ЭБУ.</li><li>Назначьте SIM и IMEI, настройте сервер/протокол, затем сравните моточасы с панелью и координаты с контрольным маршрутом.</li></ol>
+<h3>Случай B. Старая машина без CAN</h3>
+<ol><li>Установщик выбирает разрешённый схемой машины сигнал «двигатель работает» — например, защищённый сигнал генератора или зажигания — и подключает его к дискретному входу трекера. Зажигание является оценкой наработки, если оно включено отдельно от двигателя; сравнивайте его со штатным счётчиком.</li><li>Подберите топливный датчик по глубине и форме бака. Его RS-485 подключают к совместимому интерфейсу трекера; проверяют питание, адрес, скорость, чётность и формат данных. После монтажа бак калибруют. Не сверлите бак и не вмешивайтесь в электрическую схему без специалиста.</li><li>Настройте передачу и проверьте на сервере время события, показания и дозаправку. Счётчик моточасов от дискретного входа помечайте как оценку, пока он не сверен с панелью.</li></ol>
+<h3>Случай C. Трекер уже подключён к чужой платформе</h3>
+<ol><li>Не демонтируйте оборудование: выясните платформу, модель/прошивку трекера и доступный API.</li><li>Предпочтительно подключить API с правами только на чтение. Если его нет, попросите интегратора добавить ITles как второй адрес ретрансляции по EGTS или Wialon Retranslator.</li><li>Уточните, кто владеет SIM и оплачивает связь, какие датчики настроены и как считаются моточасы. Для Galileosky не меняйте общий протокол двух серверов.</li></ol>
+<table><thead><tr><th>Сценарий</th><th>Известная стартовая стоимость на машину</th><th>Регулярная связь</th><th>Что не включено / не подтверждено</th></tr></thead><tbody><tr><td>A · новая машина, CAN</td><td>Galileosky 10 Plus LTE Ext ≈24 260 ₽ + до ≈1 700 ₽ за базовую установку = <strong>≈25 960 ₽</strong> [5, 15]. CANCrocodile, если нужен, — ещё ≈4 700 ₽ [8].</td><td>От ≈75 ₽/мес. за MTS M2M 100 МБ в Москве [12].</td><td>Доставка, подключение CAN и настройка на спецмашине, тариф ITles/VPS. 1 700 ₽ — верх опубликованного диапазона простого монтажа, не цена спецработ.</td></tr><tr><td>B · нет CAN, сигнал двигателя + RS-485</td><td>Трекер ≈24 260 ₽ + Omnicomm LLS 5, 1 000 мм, ≈19 450 ₽ + до ≈1 700 ₽ за базовую установку = <strong>≈45 410 ₽</strong> [5, 9, 15].</td><td>От ≈75 ₽/мес. [12].</td><td>Монтаж датчика в бак, расходники, тарировка и точная пара протоколов LLS 5/трекера отдельно не оценены; итог выше. Зонд 1 000 мм подходит не каждому баку.</td></tr><tr><td>C · существующий трекер и платформа</td><td><strong>0 ₽ на новое оборудование</strong>, если API/ретрансляция доступны.</td><td>Используется действующий SIM-контракт; его цена зависит от владельца.</td><td>Работы интегратора, лицензия платформы, цена API и VPS не опубликованы и не включены.</td></tr></tbody></table>
+<p>Это цены продавцов, проверенные <strong>24.09.2026</strong>, а не предложения для конкретной машины. Сумма содержит только перечисленные строки; работы, VPS и лицензии не оценены. Монтаж CAN/RS-485 на спецтехнике не равен обычной установке трекера [5, 8–15].</p>
+<h3>Ориентиры по SIM M2M</h3>
+<table><thead><tr><th>Оператор / карточка</th><th>Опубликованный ориентир на 24.09.2026</th></tr></thead><tbody><tr><td>МТС, Москва [12]</td><td>100 МБ — 75 ₽/мес.; 500 МБ — 135 ₽/мес.</td></tr><tr><td>МегаФон, Москва [13]</td><td>100 МБ — 70 ₽/мес.; APN и управление SIM могут оплачиваться отдельно.</td></tr><tr><td>билайн, Москва [14]</td><td>На странице показано 90 ₽/мес. за пакет Premium (100 МБ, SMS и CSD); сноска о НДС на странице содержит условие, устаревшее к дате проверки — цену подтвердите в договоре.</td></tr><tr><td>T2 / Tele2</td><td>Цена подходящего бизнес-тарифа M2M в этой проверке <strong>не подтверждена</strong>; запросите действующий региональный тариф у оператора.</td></tr></tbody></table>
+<p>Цены операторов региональные и договорные; проверьте покрытие именно на месте работы техники, объём трафика, роуминг и APN. Наличие SIM не создаёт соединение само по себе: терминалу нужны корректный адрес/порт и разрешённый исходящий доступ к серверу.</p>
+<h2>5. Телефон в кабине: браузер или приложение</h2>
+<p>Разрешение на геолокацию означает, что браузеру или приложению можно запрашивать координаты; оно не запускает запись и не гарантирует фоновую работу. В Safari на iPhone 11 открытая страница может получать позицию, пока активна, но <strong>на непрерывный трекинг при свёрнутой вкладке или заблокированном экране рассчитывать нельзя</strong>: у веб-страницы нет собственного постоянно работающего фонового сервиса. Нативное приложение может запросить отдельное фоновое разрешение в iOS (операционной системе iPhone) [21].</p>
+<ul><li><strong>iPhone:</strong> для фоновой передачи используйте Traccar Client или другое нативное приложение, которому вы доверяете. В Traccar Client задайте ID устройства и полный URL своего совместимого сервера, включите высокую точность и разрешите фоновую геолокацию, если iOS предложит этот режим. Не завершайте приложение принудительно. Прямо в ITles: на странице машины нажмите «+ Traccar Client» — ITles выдаст идентификатор устройства и адрес сервера (приём по протоколу OsmAnd, который использует Traccar Client); впишите их в приложение. Другой путь — собственный Traccar Server и подключение «Traccar» в ITles [3, 20, 21]. На iPhone откройте <code>Настройки → Конфиденциальность и безопасность → Службы геолокации → Traccar Client</code>; включите точную геопозицию и доступ, достаточный для выбранного сценария. Названия пунктов могут отличаться по версии iOS.</li><li><strong>Android:</strong> в текущей сборке ITles запустите приложение, войдите в кабинет, откройте «Телефон в кабине», нажмите запуск и разрешите точную геолокацию и уведомления. Оставьте постоянное уведомление активным: foreground-служба — системно заметная фоновая служба с уведомлением. Если точки пропадают, в настройках приложения → батарея разрешите фон/режим «без ограничений». Службу запускайте из открытого приложения; настройки Android зависят от производителя [6, 22].</li><li><strong>Резерв:</strong> Traccar Client доступен для Android и iOS и рассчитан на фоновую отправку. При отсутствии сети он может буферизовать точки и отправить их позже, если эта опция включена; энергосбережение ОС и принудительная остановка приложения всё равно создают пропуски [20].</li></ul>
+<p><strong>Ограничение именно этой сборки ITles для Android:</strong> в репозитории описаны нативная foreground-служба и постоянное уведомление, однако APK проверен статически, а запуск на телефоне/эмуляторе ещё не выполнен. Координаты передаются веб-слоем: неотправленные точки ждут в очереди браузера (IndexedDB), но нативной досылки после завершения процесса нет. Сначала проверьте «последнюю фиксацию», число точек и ответ сервера с включённым экраном, затем повторите тест при блокировке и после потери сети [6].</p>
+<p>Координаты могут идентифицировать водителя. Перед сбором получите решение владельца техники; главный администратор владельца должен управлять тем, включена ли геолокация и кому видны координаты. Правовой режим хранения и место размещения данных надо оценить до реального пилота [1].</p>
+<h2>6. Что спросить у владельца техники и как принять тест</h2>
+<ul><li>Марка, модель, год машины и двигателя; показания штатного счётчика моточасов/одометра для сверки.</li><li>Установлены ли терминал и датчики? Точная модель, ревизия, IMEI, прошивка, свободный серверный адрес и кто отвечает за SIM.</li><li>Какая платформа уже используется? Можно ли получить API-токен <strong>только для чтения</strong> или заказать ретрансляцию; кто её администрирует?</li><li>Какой выход настроен: Galileosky, EGTS, Wialon IPS 2.0, Wialon Retranslator, FLEX — какой версии? Для Galileosky узнайте протокол действующего сервера и не меняйте его.</li><li>Есть ли доступный CAN/J1939 и описание разъёма; какие именно SPN/счётчики видит терминал? Если CAN нет — какой защищённый сигнал подтверждает работу двигателя?</li><li>Для топливного датчика: модель, длина, интерфейс, протокол/скорость, адрес и форма бака; есть ли таблица тарировки?</li><li>Где машина работает и какой мобильный оператор там ловит? На ком SIM, какой M2M-тариф/APN, есть ли архив и сколько истории он хранит?</li><li>Кто разрешает координаты, кто их увидит, где будут храниться записи и кто может отключить передачу?</li></ul>
+<p><strong>Порядок приёмки:</strong> 1) сверить модель/IMEI и локальное показание; 2) увидеть TCP-соединение и распознанные записи на шлюзе; 3) убедиться, что API ITles показывает тот же источник и время события; 4) сравнить моточасы с панелью, топливный датчик — с тарировкой, координаты — с разрешённым контрольным маршрутом; 5) отдельно проверить архив и досылку после разрыва связи. Зафиксируйте протокол, способ измерения, расхождение и ограничения. Результат синтетического теста не является полевым испытанием [1–3].</p>
+<h2 class="sources-heading">Источники</h2>
+<p class="source">[1] Репозиторий ITles: <code>README.md</code>; <code>docs/design/DESIGN-v2.md</code>; <code>docs/ROADMAP.md</code>; <code>docs/evidence/gateway-e2e.json</code>; <code>docs/evidence/odometry-validation.json</code> — архитектура и граница между моделью и полевым тестом.</p>
+<p class="source">[2] <code>docs/research/factcheck-v2.md</code>; <code>docs/research/sources.md</code> — проверенные настройки Galileosky, Wialon, стандарты и исходные внешние источники.</p>
+<p class="source">[3] <code>platform/server/demo-fleet.json</code>; <code>gateway/itles_gateway/server.py</code>; <code>gateway/itles_gateway/protocols/</code>; <code>platform/server/connectors/</code>; <code>apps/mobile/README.md</code> — демо-модели, принятые протоколы, API-соединители и состояние Android-сборки.</p>
+<p class="source">[4] Galileosky 10 Plus, производитель: <a href="https://galileosky.ru/products/devices/10/galileosky-10-plus.html">https://galileosky.ru/products/devices/10/galileosky-10-plus.html</a> (доступ 24.09.2026).</p>
+<p class="source">[5] Galileosky 10 Plus LTE Ext, ComPass: <a href="https://com-pass.ru/product/galileosky-10-plus-lte-ext/">https://com-pass.ru/product/galileosky-10-plus-lte-ext/</a> (карточка цены 24 260 ₽, доступ 24.09.2026).</p>
+<p class="source">[6] Навтелеком СМАРТ S-2435, Technesis: <a href="https://technesis.ru/shop/transport/telemetriya-navigatsiya/navtelecom-smart-s-2435">https://technesis.ru/shop/transport/telemetriya-navigatsiya/navtelecom-smart-s-2435</a> (карточка 8 500 ₽, модем 2G, доступ 24.09.2026).</p>
+<p class="source">[7] Навтелеком СИГНАЛ S-2653, Technesis: <a href="https://technesis.ru/shop/transport/telemetriya-navigatsiya/navtelecom-signal-s-2653">https://technesis.ru/shop/transport/telemetriya-navigatsiya/navtelecom-signal-s-2653</a> (карточка 12 700 ₽, модем 2G, доступ 24.09.2026).</p>
+<p class="source">[8] CAN-LOG CANCrocodile: <a href="https://canlog.ru/product/cancrocodile/">https://canlog.ru/product/cancrocodile/</a> (4 700 ₽); CAN-LOG B34: <a href="https://canlog.ru/product/can-log-b34/">https://canlog.ru/product/can-log-b34/</a> (10 000 ₽); доступ 24.09.2026.</p>
+<p class="source">[9] Omnicomm LLS 5, 1 000 мм, Stavtrack: <a href="https://www.stavtrack.ru/oborudovanie/datchik-urovnya-topliva-omnicomm-lls-5-1000mm.html">https://www.stavtrack.ru/oborudovanie/datchik-urovnya-topliva-omnicomm-lls-5-1000mm.html</a> (19 450 ₽, доступ 24.09.2026).</p>
+<p class="source">[10] Эскорт ТД-150, 1 500 мм, Stavtrack: <a href="https://www.stavtrack.ru/oborudovanie/datchik-urovnya-topliva-datchik-urovnya-topliva-eskort-td-150-1500-mm.html">https://www.stavtrack.ru/oborudovanie/datchik-urovnya-topliva-datchik-urovnya-topliva-eskort-td-150-1500-mm.html</a> (8 500 ₽, доступ 24.09.2026).</p>
+<p class="source">[11] Технотон DUT-E: <a href="https://pro-spec.ru/catalog/dut-e">https://pro-spec.ru/catalog/dut-e</a> (цена DUT-E RS-485 1 000 мм 6 490 ₽ в карточке продавца); <a href="https://technoton.shop/catalog/datchiki-urovnia-topliva/tsifrovye-dutchiki-urovnia-topliva/131">https://technoton.shop/catalog/datchiki-urovnia-topliva/tsifrovye-dutchiki-urovnia-topliva/131</a> (карточка DUT-E 485 с ценой 15 868,80 ₽, но в извлечённых данных заголовок и длина в характеристиках расходятся). Оба доступа 24.09.2026; точная комплектация/цена не подтверждена.</p>
+<p class="source">[12] МТС Бизнес, M2M «Телематика»: <a href="https://business.mts.ru/moskva/telematika">https://business.mts.ru/moskva/telematika</a> (100 МБ — 75 ₽/мес.; доступ 24.09.2026, Москва).</p>
+<p class="source">[13] МегаФон Бизнес, IoT: <a href="https://moscow.megafon.ru/corporate/services/iot">https://moscow.megafon.ru/corporate/services/iot</a> (100 МБ — 70 ₽/мес.; доступ 24.09.2026, Москва).</p>
+<p class="source">[14] билайн Бизнес, «Телематика»: <a href="https://moskva.beeline.ru/business/iot/telematika-m2m/">https://moskva.beeline.ru/business/iot/telematika-m2m/</a> (на странице указано 90 ₽/мес.; сноска по НДС требует подтверждения; доступ 24.09.2026, Москва).</p>
+<p class="source">[15] МСС ГЛОНАСС, монтаж: <a href="https://mssglonass.ru/uslugi/">https://mssglonass.ru/uslugi/</a> (500–1 700 ₽ в зависимости от модели); <a href="https://mssglonass.ru/uslugi/services/ustanovka-trekerabr-glonassgps/">https://mssglonass.ru/uslugi/services/ustanovka-trekerabr-glonassgps/</a> (1 700 ₽ за одно устройство на странице услуги). Цена монтажа спецтехники не подтверждена; доступ 24.09.2026.</p>
+<p class="source">[16] Уведомление партнёрам Wialon перепечатано: <a href="https://www.retail.ru/rbc/pressreleases/wialon-ukhodit-chto-aytob-predlagaet-vzamen/">https://www.retail.ru/rbc/pressreleases/wialon-ukhodit-chto-aytob-predlagaet-vzamen/</a> (21.06.2024); замер 10/10 ответов 403 из РФ — <code>docs/research/factcheck-v2.md</code> (23.09.2026).</p>
+<p class="source">[17] Teltonika, решение об уходе из РФ в 2022 году: <a href="https://www.lrt.lt/en/news-in-english/19/2467389">https://www.lrt.lt/en/news-in-english/19/2467389</a>; исходный ориентир приведён в <code>docs/research/sources.md</code> (S13).</p>
+<p class="source">[18] Примеры оборудования: АвтоГРАФ — <a href="https://avtograf-gsm.ru/oborudovanie.php">https://avtograf-gsm.ru/oborudovanie.php</a>; Arnavi — <a href="https://www.arusnavi.ru/tracker/arnavi-a4.html">https://www.arusnavi.ru/tracker/arnavi-a4.html</a>; СКАУТ — <a href="https://promo.scout-gps.ru/oborudovanie2/">https://promo.scout-gps.ru/oborudovanie2/</a>; доступ 24.09.2026.</p>
+<p class="source">[19] Платформы: Wialon Local — <a href="https://wialon.com/en/software/wialon-local">https://wialon.com/en/software/wialon-local</a>; Omnicomm Online — <a href="https://www.omnicomm.ru/components/omnicomm-online/omnicomm-online/">https://www.omnicomm.ru/components/omnicomm-online/omnicomm-online/</a>; ГЛОНАССсофт — <a href="http://samara.glonasssoft.ru/">http://samara.glonasssoft.ru/</a>; Fort Monitor — <a href="https://automotive.fort-telecom.ru/fort_monitor/">https://automotive.fort-telecom.ru/fort_monitor/</a>; доступ 24.09.2026.</p>
+<p class="source">[20] Traccar, исходный код и Client: <a href="https://github.com/traccar/traccar">https://github.com/traccar/traccar</a>; <a href="https://www.traccar.org/client/">https://www.traccar.org/client/</a>; <a href="https://www.traccar.org/client-configuration/">https://www.traccar.org/client-configuration/</a>; <a href="https://www.traccar.org/client-troubleshooting/">https://www.traccar.org/client-troubleshooting/</a>; доступ 24.09.2026.</p>
+<p class="source">[21] Apple Location Services: <a href="https://support.apple.com/en-us/102647">https://support.apple.com/en-us/102647</a>; W3C Geolocation / WebKit visibility behaviour: <a href="https://github.com/w3c/geolocation/pull/90">https://github.com/w3c/geolocation/pull/90</a>; <a href="https://trac.webkit.org/changeset/281520/webkit">https://trac.webkit.org/changeset/281520/webkit</a>; доступ 24.09.2026.</p>
+<p class="source">[22] Android Developers, foreground service and location: <a href="https://developer.android.com/develop/background-work/services/fgs/service-types">https://developer.android.com/develop/background-work/services/fgs/service-types</a>; <a href="https://developer.android.com/develop/sensors-and-location/location/permissions">https://developer.android.com/develop/sensors-and-location/location/permissions</a>; доступ 24.09.2026.</p>
+<p class="source">[23] SAE J1939/11 (250 kbit/s) и J1939/13 (разъём, редакция 2024): <a href="https://saemobilus.sae.org/standards/j193911_201612-physical-layer-250-kbps-twisted-shielded-pair">https://saemobilus.sae.org/standards/j193911_201612-physical-layer-250-kbps-twisted-shielded-pair</a>; <a href="https://saemobilus.sae.org/standards/j193913_202408-off-board-diagnostic-connector">https://saemobilus.sae.org/standards/j193913_202408-off-board-diagnostic-connector</a>; схема 9-контактных разъёмов: <a href="https://opusivs.com/wp-content/uploads/2023/12/DrewLinQ_Industry_Connectors_Reference_OpusBranded.pdf">https://opusivs.com/wp-content/uploads/2023/12/DrewLinQ_Industry_Connectors_Reference_OpusBranded.pdf</a>; ГОСТ 33472-2015: <a href="https://base.garant.ru/71646546/">https://base.garant.ru/71646546/</a>; ГОСТ 33465-2015: <a href="https://novtest.ru/standard/ENG/GOST%2033465-2015.pdf">https://novtest.ru/standard/ENG/GOST%2033465-2015.pdf</a>; J1939 SPN 247: <a href="https://www.csselectronics.com/pages/j1939-explained-simple-intro-tutorial">https://www.csselectronics.com/pages/j1939-explained-simple-intro-tutorial</a>; доступ 24.09.2026.</p></main></body>
+</html>

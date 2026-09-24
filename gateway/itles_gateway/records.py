@@ -34,6 +34,7 @@ class Mapping:
     #   {"oil_level_pct": {"egts_an": 1, "scale": 0.1}}         EGTS ABS_AN_SENS_DATA input number
     #   {"oil_water_aw": {"tag": 0xE2, "float": True}}          Galileosky user tag (RS-485/Modbus algorithm), IEEE-754
     #   {"oil_level_low": {"tag": 0x50, "threshold": 1900, "when": "below"}}  current-type level switch via shunt
+    #   {"fuel_level_l": {"egts_lls": 1}}                         EGTS LIQUID_LEVEL_SENSOR number (litres)
     sensors: dict = field(default_factory=dict)
 
     @staticmethod
@@ -75,7 +76,7 @@ def _interp(table: list, x: float) -> float:
 
 
 def apply_sensors(mapping: Mapping, rec: dict, *, params: dict | None = None, tags: dict | None = None,
-                  analog: dict | None = None) -> None:
+                  analog: dict | None = None, lls: dict | None = None) -> None:
     out: dict = {}
     for key, spec in (mapping.sensors or {}).items():
         raw = None
@@ -90,6 +91,8 @@ def apply_sensors(mapping: Mapping, rec: dict, *, params: dict | None = None, ta
                 raw = int.from_bytes(b[off: off + spec.get("bytes", len(b) - off)], "little", signed=spec.get("signed", False))
         elif analog is not None and "egts_an" in spec:
             raw = analog.get(spec["egts_an"])
+        elif lls is not None and "egts_lls" in spec:
+            raw = lls.get(spec["egts_lls"])
         if not isinstance(raw, (int, float)) or isinstance(raw, bool):
             continue
         if isinstance(raw, float) and raw != raw:  # NaN from an unset float register
@@ -106,3 +109,19 @@ def apply_sensors(mapping: Mapping, rec: dict, *, params: dict | None = None, ta
         out[key] = round(val, 4)
     if out:
         rec["sensors"] = out
+    if params is not None and isinstance(params.get("dtc"), str):
+        rec["dtc"] = parse_dtc(params["dtc"])
+
+
+def parse_dtc(text: str) -> list[dict]:
+    """Active J1939 DM1 codes sent as a text parameter: "SPN.FMI[.OC];..." (empty = none active)."""
+    out = []
+    for item in text.replace(",", ";").split(";"):
+        parts = item.strip().split(".")
+        if len(parts) < 2 or not all(p.isdigit() for p in parts[:3]):
+            continue
+        code = {"spn": int(parts[0]), "fmi": int(parts[1])}
+        if len(parts) > 2:
+            code["oc"] = int(parts[2])
+        out.append(code)
+    return out

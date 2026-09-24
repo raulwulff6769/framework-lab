@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -15,7 +16,7 @@ log = logging.getLogger("itles.forwarder")
 # rejections that will never succeed on retry
 PERMANENT = {
     "bad_time", "time_too_old", "time_in_future", "bad_coordinates", "bad_engine_hours", "bad_odometer",
-    "no_data", "not_an_object", "bad_sensor",
+    "no_data", "not_an_object", "bad_sensor", "machine_deleted",
 }
 
 
@@ -27,6 +28,10 @@ class Forwarder:
         self.batch = batch
         self.timeout = timeout
         self.stop = threading.Event()
+        # monitoring only (status file of the live stand)
+        self.forwarded = 0
+        self.last_ok_t: float | None = None
+        self.last_error: str | None = None
 
     def post(self, records: list[dict]) -> dict:
         body = json.dumps({"records": records}, separators=(",", ":")).encode()
@@ -49,10 +54,12 @@ class Forwarder:
             res = self.post(records)
         except urllib.error.HTTPError as e:
             log.warning("platform HTTP %s; keeping %d records", e.code, len(ids))
+            self.last_error = f"HTTP {e.code}"
             self.q.retry(ids, f"http {e.code}")
             return 0
         except Exception as e:  # network, timeout, bad JSON: keep everything
             log.warning("platform unreachable (%s); keeping %d records", e, len(ids))
+            self.last_error = str(e)[:200]
             self.q.retry(ids, str(e))
             return 0
 
@@ -108,6 +115,9 @@ class Forwarder:
             return 0
 
         self.q.ack(done)
+        self.forwarded += len(done)
+        self.last_ok_t = time.time()
+        self.last_error = None
         if parked:
             self.q.retry(parked, "unknown_device", park=True)
         if retry:

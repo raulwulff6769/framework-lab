@@ -10,8 +10,9 @@ from ..records import Mapping, apply_sensors, clean
 EPOCH_2010 = 1262304000
 PT_RESPONSE, PT_APPDATA = 0, 1
 SERVICE_AUTH, SERVICE_TELEDATA = 1, 2
-SR_RECORD_RESPONSE, SR_TERM_IDENTITY, SR_RESULT_CODE = 0, 1, 9
+SR_RECORD_RESPONSE, SR_TERM_IDENTITY, SR_DISPATCHER_IDENTITY, SR_RESULT_CODE = 0, 1, 5, 9
 SR_POS_DATA, SR_EXT_POS_DATA, SR_COUNTERS_DATA, SR_ABS_AN_SENS_DATA, SR_ABS_CNTR_DATA = 16, 17, 19, 24, 25
+SR_LIQUID_LEVEL_SENSOR = 27
 
 
 class ProtocolError(Exception):
@@ -27,6 +28,9 @@ class EgtsSession:
         self.pid = 0
         self.rn = 0
         self.mapping = mapping or Mapping()
+        # platform retranslation: a dispatcher connection carries many objects, one OID per record
+        self.dispatcher = False
+        self.mappings: dict[str, Mapping] = {}
 
     def _packet(self, ptype: int, sfrd: bytes) -> bytes:
         header = struct.pack("<BBBBBHHB", 1, 0, 0, 11, 0, len(sfrd), self.pid, ptype)
@@ -93,6 +97,7 @@ class EgtsSession:
             rec: dict = {}
             counters: dict[int, int] = {}
             analog: dict[int, int] = {}
+            lls: dict[int, float] = {}
             while pos + 3 <= end:
                 srt, srl = struct.unpack_from("<BH", sfrd, pos)
                 pos += 3
@@ -103,6 +108,10 @@ class EgtsSession:
                     p = 5 + (2 if flags & 1 else 0)
                     imei = d[p : p + 15].decode("ascii", "replace").strip("\x00 ") if flags >> 1 & 1 else ""
                     self.ext_id = imei if imei and imei.strip("0") else str(tid)
+                    res = struct.pack("<BH", SR_RESULT_CODE, 1) + b"\x00"
+                    extra += self._packet(PT_APPDATA, self._record(SERVICE_AUTH, res))
+                elif srt == SR_DISPATCHER_IDENTITY and sst == SERVICE_AUTH and len(d) >= 5:
+                    self.dispatcher = True
                     res = struct.pack("<BH", SR_RESULT_CODE, 1) + b"\x00"
                     extra += self._packet(PT_APPDATA, self._record(SERVICE_AUTH, res))
                 elif srt == SR_POS_DATA and len(d) >= 21:
@@ -131,6 +140,12 @@ class EgtsSession:
                         rec["sats"] = d[p]
                 elif srt == SR_ABS_AN_SENS_DATA and len(d) >= 4:
                     analog[d[0]] = int.from_bytes(d[1:4], "little")
+                elif srt == SR_LIQUID_LEVEL_SENSOR and len(d) >= 7:
+                    flags = d[0]
+                    if not flags >> 3 & 1 and not flags >> 6 & 1:  # value (not raw data), no sensor error
+                        value = struct.unpack_from("<I", d, 3)[0]
+                        unit = flags >> 4 & 0b11
+                        lls[flags & 0x07] = value / 10 if unit in (0b01, 0b10) else float(value)
                 elif srt == SR_ABS_CNTR_DATA and len(d) >= 4:
                     counters[d[0]] = int.from_bytes(d[1:4], "little")
                 elif srt == SR_COUNTERS_DATA and d:
@@ -139,12 +154,15 @@ class EgtsSession:
                         if mask >> i & 1:
                             counters[i + 1] = int.from_bytes(d[p : p + 3], "little")
                             p += 3
-            n = self.mapping.egts_hours_counter
+            mapping = self.mappings.get(str(oid), self.mapping) if self.dispatcher and oid is not None else self.mapping
+            n = mapping.egts_hours_counter
             if n is not None and n in counters and counters[n]:
-                rec["engine_hours"] = counters[n] * self.mapping.egts_hours_scale
+                rec["engine_hours"] = counters[n] * mapping.egts_hours_scale
                 rec["engine_hours_method"] = "tracker"
-            apply_sensors(self.mapping, rec, analog=analog)
+            apply_sensors(mapping, rec, analog=analog, lls=lls)
             responses += self._record(sst, struct.pack("<BHHB", SR_RECORD_RESPONSE, 3, rn, 0))
+            if self.dispatcher and oid is not None:
+                rec["_ext"] = str(oid)
             if "t" in rec and self.ext_id:
                 records.append(clean(rec))
             pos = end

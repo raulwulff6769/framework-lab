@@ -69,7 +69,10 @@ export function analyzeFuel(level: Pt[], rate: Pt[] = [], opts: { tankL?: number
   const thr = Math.max(10, (opts.tankL ?? 0) * 0.02);
   const dv = f.map((p, i) => {
     const k = after(f, i, p.t + STEP_WINDOW);
-    return f[k].t - p.t <= STEP_WINDOW * 2 ? f[k].v - p.v : 0;
+    if (f[k].t - p.t <= STEP_WINDOW * 2) return f[k].v - p.v;
+    // a gap (a parked tracker in a data-saving profile writes once an hour): the level only rises by
+    // refuelling, so a rise across the gap is still a step; a fall is judged by the burn rule below
+    return i + 1 < f.length ? f[i + 1].v - p.v : 0;
   });
   const events: FuelEvent[] = [];
   let i = 0;
@@ -82,7 +85,7 @@ export function analyzeFuel(level: Pt[], rate: Pt[] = [], opts: { tankL?: number
     // points whose next 10 minutes still show the same step belong to one event
     let j = i;
     while (j + 1 < f.length && dir * dv[j + 1] >= thr / 2 && f[j + 1].t - f[i].t <= 60 * MIN) j++;
-    const until = f[j].t + STEP_WINDOW;
+    const until = Math.max(f[j].t + STEP_WINDOW, f[Math.min(j + 1, f.length - 1)].t);
     let e = i;
     for (let k = i; k < f.length && f[k].t <= until; k++) if (dir > 0 ? f[k].v > f[e].v : f[k].v < f[e].v) e = k;
     let s = i;

@@ -104,6 +104,13 @@ export function Stand({ me }: { me: Me }) {
             <div className="text-xs">
               {st.host ?? ''} · режим {st.mode === 'eco' ? 'экономичный (отчёт раз в 15 мин)' : 'живой (раз в 3 с)'} · отчёт {ago(st.reported_at)}
             </div>
+            {st.online && st.mode === 'eco' && (
+              <div className="mt-1 max-w-xs text-xs text-foreground/80">
+                Живой режим включится со следующим отчётом стенда — около{' '}
+                {new Date(st.reported_at + 15 * 60e3).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}; держите страницу открытой. Редкие отчёты
+                дают базе данных засыпать, пока стенд никто не смотрит.
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">стенд ещё не подключался</div>

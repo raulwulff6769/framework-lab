@@ -27,6 +27,31 @@ Vercel (`list_projects`, `get_project`, `list_deployments`, `get_deployment`,
   подтверждено. `itles-web` и `itles-probe` — отдельные проекты, не менять их
   вместо `itles`.
 
+## 24.09.2026: выпуск из framework-lab
+
+Выполнено с явного согласия владельца; значения секретов не выводились.
+
+1. Резервная копия: `pg_dump` **18.6** (сервер Neon — PostgreSQL 18.6; клиент 16 отказывается) в формате custom и plain,
+   хранится только в песочнице агента. Долговременный откат данных — восстановление Neon на момент
+   времени в пределах окна тарифа.
+2. Миграция схемы 3 → 4 проверена на копии: дамп восстановлен в локальный PostgreSQL 18,
+   `scripts/db-migrate.ts --demo` прошёл, число позиций, счётчиков, показаний, машин, пользователей и
+   источников совпало с продом, ключевые API нового кода ответили 200.
+3. Боевая база: `DATABASE_URL=<unpooled> npx tsx scripts/db-migrate.ts --demo --gateway-key-file <файл 600>` —
+   схема, демо-тенант и ключ шлюза стенда в одной транзакции.
+4. Деплой: `create_deployment` MCP Vercel в существующий проект `itles` (target `production`) с двумя
+   файлами — `package.json` (`build: sh build.sh`) и `build.sh`, который скачивает архив
+   `codeload.github.com/raulwulff6769/framework-lab/tar.gz/<SHA>` и выполняет
+   `pnpm install --frozen-lockfile && pnpm build:vercel`. Та же сборка перед этим повторена локально.
+   SHA — голова PR #4; адрес деплоя и SHA фиксируются в описании PR.
+5. Проверка: `/api/health` → `version=0.3.0`, `/api/setup/status` → `needs_setup=false`, `/api/demo` → 11 учёток,
+   cron и `/api/stand/report` без ключей → 403/401; вход под демо-учётками и страницы — в браузере.
+
+Откат кода: в Vercel повысить предыдущий production-деплой (Instant Rollback). Код v3 на схеме v4
+работает: его SQL только `create … if not exists`, новые столбцы имеют значения по умолчанию; роли
+`superadmin/analyst/…` старый интерфейс покажет как обычных пользователей.
+
+
 ## Код и границы инфраструктуры
 
 `platform/scripts/build-vercel.mjs` выдаёт Build Output API **v3** в

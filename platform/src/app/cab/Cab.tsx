@@ -95,7 +95,13 @@ function Help({ denied }: { denied: boolean }) {
         <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
           <li>Включите «Местоположение» в шторке телефона.</li>
           <li>Chrome: значок слева от адреса → «Разрешения» → Местоположение: <b>«Разрешить»</b>. Обновите страницу.</li>
-          <li>Для работы в фоне установите приложение ITles для Android (фоновая служба) или Traccar Client из Google Play.</li>
+          <li>
+            Для работы в фоне установите{' '}
+            <a className="underline" href="https://github.com/raulwulff6769/framework-lab/releases/download/android-2026.09.24/itles-android.apk">
+              приложение ITles для Android
+            </a>{' '}
+            (фоновая служба) или Traccar Client из Google Play.
+          </li>
         </ol>
       )}
     </div>
