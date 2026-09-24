@@ -1,0 +1,9 @@
+/dist/
+/node_modules/
+/www/
+/src/**/*.js
+/src/**/*.js.map
+/src/**/*.tsbuildinfo
+/android/.gradle/
+/android/build/
+/android/app/build/

@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, Droplets, LogOut, Plug, Truck, Wrench } from 'lucide-react';
+import { Activity, BookOpen, Building2, Droplets, LogOut, Plug, ScrollText, Settings as SettingsIcon, Trash2, Truck, Wrench } from 'lucide-react';
 import '../styles.css';
 import { api, ApiError, apiBase, TOKEN_KEY } from './api';
 import { ThemeToggle } from './main-toggle';
@@ -12,16 +12,14 @@ import { Service } from './pages/Service';
 import { Oil } from './pages/Oil';
 import { Login } from './pages/Login';
 import { Cab } from './cab/Cab';
+import { Trash } from './pages/Trash';
+import { Audit } from './pages/Audit';
+import { Settings } from './pages/Settings';
+import { Stand } from './pages/Stand';
+import { Knowledge } from './pages/Knowledge';
+import { can, sees, type Me } from './perm';
 
-export interface Me {
-  id: string;
-  login: string;
-  role: 'admin' | 'member';
-  org_id: string;
-  org_kind: 'fuchs' | 'distributor' | 'customer';
-  org_name: string;
-  share_location_up: boolean;
-}
+export type { Me } from './perm';
 
 function useHash(): string {
   const [h, setH] = useState(location.hash || '#/');
@@ -34,8 +32,6 @@ function useHash(): string {
 }
 
 export const go = (h: string) => (location.hash = h);
-
-const ROLE_RU = (me: Me) => (me.role === 'admin' ? (me.org_kind === 'customer' ? 'главный администратор' : 'администратор') : 'сотрудник');
 
 function App() {
   const hash = useHash();
@@ -58,20 +54,30 @@ function App() {
     localStorage.removeItem(TOKEN_KEY);
     setMe(null);
   };
-  const parts = hash.slice(2).split('/');
+  const parts = hash.split('?')[0].slice(2).split('/');
   const nav = [
-    { h: '#/', t: 'Парк', icon: Truck },
-    { h: '#/oil', t: 'Масло', icon: Droplets },
-    { h: '#/service', t: 'Обслуживание', icon: Wrench },
-    { h: '#/orgs', t: me.org_kind === 'customer' ? 'Организация' : 'Организации', icon: Building2 },
-    { h: '#/connect', t: 'Подключения', icon: Plug },
-  ];
+    { h: '#/', t: 'Парк', icon: Truck, on: true },
+    { h: '#/oil', t: 'Масло', icon: Droplets, on: sees(me, 'oil') },
+    { h: '#/service', t: 'Обслуживание', icon: Wrench, on: sees(me, 'service') },
+    { h: '#/stand', t: 'Стенд', icon: Activity, on: can(me, 'stand.view') },
+    { h: '#/orgs', t: me.org_kind === 'customer' ? 'Организация' : 'Организации', icon: Building2, on: true },
+    { h: '#/connect', t: 'Подключения', icon: Plug, on: can(me, 'connectors.manage') || sees(me, 'sources') },
+    { h: '#/trash', t: 'Корзина', icon: Trash2, on: can(me, 'trash.view') },
+    { h: '#/audit', t: 'Журнал', icon: ScrollText, on: can(me, 'audit.view') },
+    { h: '#/settings', t: 'Настройки', icon: SettingsIcon, on: can(me, 'settings.manage') },
+    { h: '#/kb', t: 'База знаний', icon: BookOpen, on: true },
+  ].filter((x) => x.on);
   let page;
   if (parts[0] === 'machine' && parts[1]) page = <MachinePage id={parts[1]} me={me} />;
   else if (parts[0] === 'orgs') page = <Orgs me={me} />;
   else if (parts[0] === 'connect') page = <Connect me={me} />;
   else if (parts[0] === 'service') page = <Service me={me} />;
   else if (parts[0] === 'oil') page = <Oil me={me} />;
+  else if (parts[0] === 'trash') page = <Trash me={me} />;
+  else if (parts[0] === 'audit') page = <Audit me={me} />;
+  else if (parts[0] === 'settings') page = <Settings me={me} />;
+  else if (parts[0] === 'stand') page = <Stand me={me} />;
+  else if (parts[0] === 'kb') page = <Knowledge me={me} />;
   else page = <Fleet me={me} />;
   const active = (h: string) => (h === '#/' ? parts[0] === '' || parts[0] === 'machine' : hash.startsWith(h));
   return (
@@ -86,7 +92,8 @@ function App() {
         </a>
         <div className="mb-4 rounded-lg border border-border px-3 py-2">
           <div className="truncate text-[13px] font-medium">{me.org_name}</div>
-          <div className="text-[11px] text-muted-foreground">{ROLE_RU(me)}</div>
+          <div className="text-[11px] text-muted-foreground">{me.role_label}{me.label ? ` · ${me.label}` : ''}</div>
+          {me.is_demo && <div className="mt-1 inline-block rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">демо-доступ</div>}
         </div>
         <nav className="flex flex-1 flex-col gap-0.5">
           {nav.map(({ h, t, icon: Icon }) => (

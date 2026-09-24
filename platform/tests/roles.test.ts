@@ -320,5 +320,24 @@ describe('roles, visibility, trash, demo, stand, Traccar Client', () => {
     await ensureDemoTenant(db);
     expect((await call('GET', '/api/machines', undefined, kubanAdmin)).data.machines).toHaveLength(machines.length);
     expect((await call('POST', '/api/auth/demo', { login: 'owner' })).status).toBe(404);
+    // only the real superadmin (re)creates the demo tenant from the settings page
+    expect((await call('POST', '/api/settings/demo-tenant', {}, demoOwner)).status).toBe(403);
+    const again = await call('POST', '/api/settings/demo-tenant', {}, T.super);
+    expect(again.status).toBe(200);
+    expect(again.data).toMatchObject({ orgs: 8, machines: 12, skipped: [] });
+  });
+
+  it('machines archived before the trash existed are never purged automatically', async () => {
+    const db = await getDb();
+    const legacy = (await call('POST', '/api/machines', { org_id: custOrg, name: 'Старый архив', category: 'tractor' }, T.admin)).data.machine.id;
+    // what the v4 migration leaves for a machine archived under v3: in the trash, but without a delete batch
+    await db.query(`update machines set archived = true, deleted_at = now() - interval '90 days', delete_batch = null where id = $1`, [legacy]);
+    const trashed = (await call('POST', '/api/machines', { org_id: custOrg, name: 'Удалена давно', category: 'tractor' }, T.admin)).data.machine.id;
+    expect((await call('DELETE', `/api/machines/${trashed}`, undefined, T.admin)).status).toBe(200);
+    await db.query(`update machines set deleted_at = now() - interval '90 days' where id = $1`, [trashed]);
+    const cron = await call('GET', '/api/cron/daily', undefined, undefined, { authorization: `Bearer ${process.env.CRON_SECRET}` });
+    expect(cron.status).toBe(200);
+    const left = (await db.query<{ id: string }>(`select id from machines where id = any($1::text[])`, [[legacy, trashed]])).rows.map((r) => r.id);
+    expect(left).toEqual([legacy]);
   });
 });

@@ -1,8 +1,9 @@
 // Geodesic computations on the WGS-84 ellipsoid (Karney's algorithms, GeographicLib): the same
 // code measures distances and field areas on the server and in the map tools of the UI.
-import { Geodesic } from 'geographiclib-geodesic';
+// default import: the package is UMD/CommonJS, so plain Node ESM (dev/server.ts on a VPS) has no named exports
+import geographiclib from 'geographiclib-geodesic';
 
-const G = Geodesic.WGS84;
+const G = geographiclib.Geodesic.WGS84;
 
 export function geodesicM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   return G.Inverse(lat1, lon1, lat2, lon2).s12 ?? 0;

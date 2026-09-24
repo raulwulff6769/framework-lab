@@ -53,6 +53,8 @@ const decimate = <T,>(rows: T[], max: number): T[] => {
 router.on('GET', '/api/machines', async (c) => {
   const u = user(c);
   const ids = await visibleMachineIds(c, u, c.url.searchParams.get('org_id'));
+  // someone looks at the fleet: the live stand leaves its economy mode at the next report
+  await c.db.query(`update stand_status set last_viewed_at = now() where last_viewed_at is null or last_viewed_at < now() - interval '30 seconds'`);
   return json({ machines: await summarize(c.db, ids, viewer(u)), now: Date.now() });
 });
 

@@ -6,6 +6,7 @@ import { bad, forbidden, HttpError, json, notFound, readJson } from '../http.js'
 import { audit, getSetting, ms, router, setSetting, str, user, type Ctx } from '../core.js';
 import { cleanOverrides, effectiveBlocks, isRole, legacyRole, rank, ROLES, rolesFor, type Role } from '../domain/roles.js';
 import { orgSubtree, purgeOrgs, purgeUsers, restoreBatch, softDeleteOrg, TRASH_DAYS } from '../purge.js';
+import { ensureDemoTenant } from '../demo.js';
 
 async function loadOrg(c: Ctx, id: string) {
   const r = await c.db.query<any>(`select id, kind, name, parent_id, is_demo, protected, deleted_at, delete_batch from orgs where id = $1`, [id]);
@@ -406,6 +407,15 @@ router.on('PATCH', '/api/settings', async (c) => {
     await audit(c.db, u, 'demo_login', { enabled: !!b.demo_login?.enabled });
   }
   return json({ ok: true });
+});
+
+/** Creates the demo tenant or brings it back to its seed state (the nightly cron does the same once it exists). */
+router.on('POST', '/api/settings/demo-tenant', async (c) => {
+  const u = user(c);
+  assertOwner(u);
+  const res = await ensureDemoTenant(c.db);
+  await audit(c.db, u, 'demo_tenant_restored', { orgs: res.orgs, users: res.users, machines: res.machines, skipped: res.skipped.length });
+  return json(res);
 });
 
 router.on('POST', '/api/gateway-keys', async (c) => {

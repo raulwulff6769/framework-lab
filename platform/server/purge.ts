@@ -74,7 +74,11 @@ export async function purgeOrgs(db: Db, rootId: string): Promise<{ orgs: number;
   return { orgs: ids.length, machines: machines.length, users: users.length };
 }
 
-/** Everything in the trash for longer than TRASH_DAYS, except protected demo seed rows. */
+/**
+ * Everything in the trash for longer than TRASH_DAYS, except protected demo seed rows. Machines that were
+ * archived before the trash existed (schema v4 moved them there without a batch) are never purged
+ * automatically: nobody chose to delete them.
+ */
 export async function purgeExpired(db: Db): Promise<{ orgs: number; machines: number; users: number }> {
   const cutoff = `now() - interval '${TRASH_DAYS} days'`;
   const roots = await db.query<{ id: string }>(
@@ -83,7 +87,7 @@ export async function purgeExpired(db: Db): Promise<{ orgs: number; machines: nu
   );
   let orgs = 0;
   for (const { id } of roots.rows) orgs += (await purgeOrgs(db, id)).orgs;
-  const m = await db.query<{ id: string }>(`select id from machines where archived and deleted_at < ${cutoff} and not protected`);
+  const m = await db.query<{ id: string }>(`select id from machines where archived and deleted_at < ${cutoff} and not protected and delete_batch is not null`);
   const u = await db.query<{ id: string }>(`select id from users where deleted_at < ${cutoff} and not protected`);
   return { orgs, machines: await purgeMachines(db, m.rows.map((r) => r.id)), users: await purgeUsers(db, u.rows.map((r) => r.id)) };
 }
