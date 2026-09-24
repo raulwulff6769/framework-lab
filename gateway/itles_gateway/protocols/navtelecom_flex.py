@@ -91,7 +91,9 @@ def _records(values: dict[int, bytes]) -> list[dict]:
 
     result = []
     # The last fix time cannot date counters measured at a different, unknown event time.
-    if counter and event_t:
+    if counter and not event_t:
+        raise ValueError("FLEX counters missing valid event time")
+    if counter:
         result.append({"t": event_t, **counter})
     if position:
         if result and event_t == fix_t:

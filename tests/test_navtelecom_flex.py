@@ -95,11 +95,16 @@ def test_flex_requires_event_time_for_counters_and_never_reuses_fix_time():
     s = _ready(selected)
     source = _value_map(event_t=0)
     packet = sim_flex.frame("C", sim_flex.record({i: source[i] for i in selected}))
+    with pytest.raises(ValueError, match="counters missing valid event time"):
+        s.feed(packet)
+
+    selected = (3, 8, 9, 10, 11)
+    s = _ready(selected)
+    packet = sim_flex.frame("C", sim_flex.record({i: source[i] for i in selected}))
     (records, ack), = s.feed(packet)
     assert ack == sim_flex.frame("C", b"")
     assert len(records) == 1 and records[0]["t"] == FIX_T
     assert "lat" in records[0] and "lon" in records[0]
-    assert "engine_hours" not in records[0] and "odometer_km" not in records[0]
 
 
 def test_flex_bad_fix_keeps_counters_and_current_state_ack_has_no_index():
@@ -146,14 +151,16 @@ def test_flex_partial_tcp_frames_ping_and_corrupt_checksums():
 
 def test_flex_wide_mask_archive_and_coalesced_maximum_ntcb_packets():
     s = _ready(range(1, 123))
-    wide_record = bytes(sum(FIELD_SIZES))
+    wide_record = bytearray(sum(FIELD_SIZES))
     assert len(wide_record) == 403
+    wide_record[sum(FIELD_SIZES[:2]):sum(FIELD_SIZES[:3])] = struct.pack("<I", EVENT_T)
     for count in (21, 255):
         packet = sim_flex.frame("A", wide_record * count, count=count)
         cut = min(len(packet) - 1, 65536)
         assert s.feed(packet[:cut]) == []
         (records, ack), = s.feed(packet[cut:])
-        assert not records and ack == sim_flex.frame("A", b"", count=count)
+        assert len(records) == count and all(r["t"] == EVENT_T for r in records)
+        assert ack == sim_flex.frame("A", b"", count=count)
 
     s = FlexSession()
     maximum = sim_flex.ntcb(b"?" * 65535)
@@ -279,4 +286,37 @@ def test_flex_tcp_ack_follows_durable_queue_commit(tmp_path, monkeypatch):
     reopened.close()
     asyncio.run(exercise(fail_write=True))
     assert q.size() == 2 and gw.stats["errors"] == 1
+    q.close()
+
+
+def test_flex_tcp_missing_counter_time_closes_without_ack_or_queue_entry(tmp_path):
+    q = DurableQueue(str(tmp_path / "q.sqlite3"))
+    gw = Gateway(q)
+    frame = sim_flex.frame("A", sim_flex.flex_record(_value_map(event_t=0), MASK), count=1)
+
+    async def exercise():
+        server = await asyncio.start_server(gw.handler("navtelecom_flex"), "127.0.0.1", 0)
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", server.sockets[0].getsockname()[1])
+            try:
+                writer.write(sim_flex.ntcb(b"*>S:" + DEVICE.encode()) + sim_flex.negotiation(FIELDS))
+                await writer.drain()
+                assert await asyncio.wait_for(reader.readexactly(19), 2) == sim_flex.ntcb(
+                    b"*<S", receiver=0, sender=1,
+                )
+                assert await asyncio.wait_for(reader.readexactly(25), 2) == sim_flex.ntcb(
+                    b"*<FLEX\xb0\x14\x14", receiver=0, sender=1,
+                )
+                writer.write(frame)
+                await writer.drain()
+                assert await asyncio.wait_for(reader.read(), 2) == b""
+            finally:
+                writer.close()
+                await writer.wait_closed()
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    asyncio.run(exercise())
+    assert q.size() == 0 and gw.stats["errors"] == 1
     q.close()
