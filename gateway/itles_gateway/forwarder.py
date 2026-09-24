@@ -55,26 +55,63 @@ class Forwarder:
             log.warning("platform unreachable (%s); keeping %d records", e, len(ids))
             self.q.retry(ids, str(e))
             return 0
+
+        by_ext: dict[str, list[int]] = {}
+        for i, record in enumerate(records):
+            by_ext.setdefault(record["ext_id"], []).append(i)
         done: list[int] = []
         parked: list[int] = []
         retry: list[int] = []
-        for r in res.get("results", []):
-            if r.get("status") == "unknown_device":
-                parked += [ids[i] for i in r.get("indexes", [])]
-                continue
-            bad = {x["index"]: x["reason"] for x in r.get("rejected", [])}
-            indexes = [i for i, rec in enumerate(records) if rec["ext_id"] == r.get("ext_id")]
-            for i in indexes:
-                reason = bad.get(i)
-                if reason is None or reason in PERMANENT:
-                    done.append(ids[i])
+        try:
+            if not isinstance(res, dict) or not isinstance(res.get("results"), list):
+                raise ValueError("missing results")
+            seen: set[str] = set()
+            for r in res["results"]:
+                if not isinstance(r, dict) or not isinstance(r.get("ext_id"), str):
+                    raise ValueError("invalid result")
+                ext = r["ext_id"]
+                if ext not in by_ext or ext in seen:
+                    raise ValueError("unexpected or duplicate device")
+                seen.add(ext)
+                indexes = by_ext[ext]
+                if r.get("status") == "unknown_device":
+                    reported = r.get("indexes")
+                    if (not isinstance(reported, list) or len(reported) != len(indexes)
+                            or any(type(i) is not int for i in reported) or set(reported) != set(indexes)):
+                        raise ValueError("invalid unknown device indexes")
+                    parked.extend(ids[i] for i in indexes)
+                elif r.get("status") == "ok":
+                    rejected = r.get("rejected")
+                    if not isinstance(rejected, list):
+                        raise ValueError("missing rejections")
+                    bad: dict[int, str] = {}
+                    for x in rejected:
+                        if (not isinstance(x, dict) or type(x.get("index")) is not int
+                                or x["index"] not in indexes or x["index"] in bad
+                                or not isinstance(x.get("reason"), str) or not x["reason"]):
+                            raise ValueError("invalid rejection")
+                        bad[x["index"]] = x["reason"]
+                    for i in indexes:
+                        reason = bad.get(i)
+                        if reason is None or reason in PERMANENT:
+                            done.append(ids[i])
+                        else:
+                            retry.append(ids[i])
                 else:
-                    retry.append(ids[i])
+                    retry.extend(ids[i] for i in indexes)
+            for ext, indexes in by_ext.items():
+                if ext not in seen:
+                    retry.extend(ids[i] for i in indexes)
+        except ValueError:
+            log.warning("invalid platform acknowledgement; keeping %d records", len(ids))
+            self.q.retry(ids, "invalid_response")
+            return 0
+
         self.q.ack(done)
         if parked:
             self.q.retry(parked, "unknown_device", park=True)
         if retry:
-            self.q.retry(retry, "rejected_retryable")
+            self.q.retry(retry, "unconfirmed_response")
         return len(done)
 
     def loop(self, idle: float = 1.0) -> None:

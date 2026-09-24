@@ -4,10 +4,13 @@ import http.server
 import json
 import os
 import socket
+import stat
 import struct
 import sys
 import tempfile
 import threading
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "gateway"))
 
@@ -175,6 +178,48 @@ def test_queue_survives_restart_and_parks_unknown_devices():
         assert q.size() == 1
 
 
+def test_queue_and_wal_are_private_even_under_permissive_umask(tmp_path):
+    path = tmp_path / "q.sqlite3"
+    previous_umask = os.umask(0o022)
+    try:
+        q = DurableQueue(str(path))
+        q.put("device", "egts", [{"t": 1, "lat": 1.0, "lon": 2.0}])
+        files = [path, tmp_path / "q.sqlite3-wal", tmp_path / "q.sqlite3-shm"]
+        assert all(f.exists() and stat.S_IMODE(f.stat().st_mode) == 0o600 for f in files)
+
+        for f in files:
+            f.chmod(0o644)
+        reopened = DurableQueue(str(path))
+        assert reopened.size() == 1
+        assert all(stat.S_IMODE(f.stat().st_mode) == 0o600 for f in files)
+        reopened.close()
+        q.close()
+    finally:
+        os.umask(previous_umask)
+
+
+@pytest.mark.skipif(not hasattr(os, "O_NOFOLLOW"), reason="platform lacks no-follow open")
+def test_queue_rejects_symlink_path(tmp_path):
+    target = tmp_path / "target.sqlite3"
+    target.touch()
+    link = tmp_path / "q.sqlite3"
+    link.symlink_to(target)
+    with pytest.raises(OSError):
+        DurableQueue(str(link))
+
+
+def test_queue_requires_directory_not_writable_by_other_users(tmp_path):
+    directory = tmp_path / "shared"
+    directory.mkdir()
+    directory.chmod(0o777)
+    try:
+        with pytest.raises(OSError, match="directory must not be writable"):
+            DurableQueue(str(directory / "q.sqlite3"))
+        assert not (directory / "q.sqlite3").exists()
+    finally:
+        directory.chmod(0o700)
+
+
 class _Api(http.server.BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["content-length"])))
@@ -216,6 +261,72 @@ def test_forwarder_acks_only_confirmed_records():
         f2 = Forwarder(q, "http://127.0.0.1:9", "token-123", timeout=1)
         q.db.execute("update q set next_try = 0")
         assert f2.run_once() == 0 and q.size() == 1
+
+
+@pytest.mark.parametrize("response", [
+    {"results": [{"ext_id": "known", "status": "error", "rejected": []}]},
+    {"results": [{"ext_id": "known", "rejected": []}]},
+    {"results": [{"ext_id": "known", "status": "ok"}]},
+    {"results": [{"ext_id": "known", "status": "ok", "rejected": [{"index": True, "reason": "bad_time"}]}]},
+    {"results": [{"ext_id": "known", "status": "ok", "rejected": [{"index": 1, "reason": "bad_time"}]}]},
+    {"results": [{"ext_id": "known", "status": "unknown_device", "indexes": [1]}]},
+    {"results": [{"ext_id": "known", "status": "ok", "rejected": []},
+                 {"ext_id": "known", "status": "ok", "rejected": []}]},
+    {"results": []},
+    {"message": "temporary failure"},
+])
+def test_forwarder_retains_records_without_valid_confirmation(tmp_path, monkeypatch, response):
+    q = DurableQueue(str(tmp_path / "q.sqlite3"))
+    q.put("known", "egts", [{"t": 1}])
+    f = Forwarder(q, "http://127.0.0.1:9", "test-token")
+    monkeypatch.setattr(f, "post", lambda _records: response)
+
+    assert f.run_once() == 0
+    assert q.size() == 1
+    assert q.take() == []  # unconfirmed data gets backoff, not a hot retry loop
+    tries, error = q.db.execute("select tries, last_error from q").fetchone()
+    assert tries == 1 and error in ("invalid_response", "unconfirmed_response")
+
+    q.db.execute("update q set next_try = 0")
+    monkeypatch.setattr(f, "post", lambda _records: {
+        "results": [{"ext_id": "known", "status": "ok", "rejected": []}],
+    })
+    assert f.run_once() == 1 and q.size() == 0
+    q.close()
+
+
+def test_forwarder_retries_only_missing_device_in_partial_response(tmp_path, monkeypatch):
+    q = DurableQueue(str(tmp_path / "q.sqlite3"))
+    q.put("known", "egts", [{"t": 1}])
+    q.put("device-b", "egts", [{"t": 2}])
+    f = Forwarder(q, "http://127.0.0.1:9", "test-token")
+    monkeypatch.setattr(f, "post", lambda _records: {
+        "results": [{"ext_id": "known", "status": "ok", "rejected": []}],
+    })
+
+    assert f.run_once() == 1
+    assert q.size() == 1 and q.take() == []
+    assert q.db.execute("select ext_id, tries, last_error from q").fetchone() == (
+        "device-b", 1, "unconfirmed_response",
+    )
+    q.close()
+
+
+def test_forwarder_retries_only_transiently_rejected_record(tmp_path, monkeypatch):
+    q = DurableQueue(str(tmp_path / "q.sqlite3"))
+    q.put("device-a", "egts", [{"t": 1}, {"t": 2}])
+    f = Forwarder(q, "http://127.0.0.1:9", "test-token")
+    monkeypatch.setattr(f, "post", lambda _records: {
+        "results": [{"ext_id": "device-a", "status": "ok",
+                     "rejected": [{"index": 1, "reason": "temporary_backend_error"}]}],
+    })
+
+    assert f.run_once() == 1
+    assert q.size() == 1 and q.take() == []
+    assert q.db.execute("select payload, tries, last_error from q").fetchone() == (
+        '{"t":2}', 1, "unconfirmed_response",
+    )
+    q.close()
 
 
 def test_free_port_helper():

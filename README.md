@@ -14,6 +14,9 @@
 
 Запуск на своём сервере (VPS): `cd platform && pnpm install && pnpm build && DATABASE_URL=postgres://… SETUP_KEY=… GATEWAY_TOKEN=… node --import tsx dev/server.ts`;
 шлюз: `cd gateway && ITLES_API_URL=https://… GATEWAY_TOKEN=… python3 -m itles_gateway`.
+Файловая SQLite-очередь шлюза требует POSIX-файловых прав и каталога без записи
+для других пользователей; запускать её на доверенном Linux/POSIX-сервере, не
+в общем каталоге. Windows-приложение — отдельный клиент, не серверный шлюз.
 Vercel: из корня `pnpm --dir platform build:vercel` формирует `platform/.vercel/output` (Build Output API v3); состояние действующего проекта и порядок безопасного обновления — в [операционном руководстве](docs/operations/vercel.md). Для локального превью лендинга и API: из корня `npm run dev` (зависимости платформы установятся, сборка создаст `platform/dist`, сервер запустится на `:5173` с локальной PGlite).
 
 ---

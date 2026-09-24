@@ -8,7 +8,9 @@ duplicate) or rejects them as invalid; unknown trackers are parked and retried.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import stat
 import threading
 import time
 
@@ -30,10 +32,40 @@ PARK_MAX_S = 3600.0
 RETENTION_S = 60 * 86400.0
 
 
+def _private_file(path: str, create: bool = False) -> None:
+    if not create and not os.path.lexists(path):
+        return
+    nofollow = os.O_NOFOLLOW
+    try:
+        if create:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | nofollow, 0o600)
+        else:
+            fd = os.open(path, os.O_RDONLY | nofollow)
+    except FileExistsError:
+        fd = os.open(path, os.O_RDONLY | nofollow)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("queue path must be a regular file")
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
+
+
 class DurableQueue:
     def __init__(self, path: str):
         self.path = path
         self.lock = threading.Lock()
+        if path != ":memory:":
+            if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "fchmod"):
+                raise OSError("file-backed gateway queue requires POSIX file permissions")
+            parent = os.path.dirname(os.path.abspath(path))
+            # SQLite reopens by name, so another user must not be able to replace the file.
+            if os.stat(parent).st_mode & 0o022:
+                raise OSError("gateway queue directory must not be writable by other users")
+            # Crash leftovers may contain the same raw coordinates as the database.
+            _private_file(path, create=True)
+            _private_file(path + "-wal")
+            _private_file(path + "-shm")
         self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self.db.execute("pragma journal_mode=wal")
         self.db.execute("pragma synchronous=full")
