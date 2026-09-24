@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import socket
+import struct
 
-from .protocols import egts, galileosky, wialon_ips
+from .protocols import egts, galileosky, navtelecom, wialon_ips
 from .tracker import Record
 
 
@@ -148,4 +149,49 @@ def send_egts(host: str, port: int, imei: str, records: list[Record], hours_meth
                 consume()
         except TimeoutError:
             pass
+    return stats
+
+
+FLEX_FIELDS = (1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 37, 57, 67, 71)
+
+
+def _flex_record(r: Record) -> bytes:
+    can_hours = r.hours.get("can")
+    tracker_hours = r.hours.get("ignition")
+    values = {
+        1: struct.pack("<I", r.index), 2: struct.pack("<H", 1), 3: struct.pack("<I", r.t),
+        8: bytes([min(r.sats, 63) << 2 | 0x01 | (0x02 if r.valid else 0)]), 9: struct.pack("<I", r.t),
+        10: struct.pack("<i", round(r.lat * 600_000)),
+        11: struct.pack("<i", round(r.lon * 600_000)),
+        12: struct.pack("<i", round(r.alt_m * 10)), 13: struct.pack("<f", r.speed_kmh),
+        14: struct.pack("<H", round(r.course)), 15: struct.pack("<f", r.gps_odometer_m / 1000),
+        37: struct.pack("<I", round(tracker_hours * 3600) if tracker_hours is not None else 0xFFFFFFFF),
+        57: struct.pack("<f", r.can_distance_raw * 0.005 if r.can_distance_raw is not None else float("nan")),
+        67: struct.pack("<I", round(can_hours * 3600) if can_hours is not None else 0xFFFFFFFF),
+        71: bytes((min(round(r.hdop * 10), 255), min(round(r.hdop * 10), 255))),
+    }
+    return navtelecom.flex_record(values, navtelecom.flex_mask(FLEX_FIELDS))
+
+
+def send_navtelecom(host: str, port: int, imei: str, records: list[Record], chunk: int = 20) -> dict:
+    stats = {"packets": 0, "bytes": 0, "acks_ok": 0}
+    with socket.create_connection((host, port), timeout=10) as sock:
+        outgoing = (
+            (navtelecom.ntcb(b"*>S:" + imei.encode()), navtelecom.ntcb(b"*<S", receiver=0, sender=1)),
+            (navtelecom.negotiation(FLEX_FIELDS),
+             navtelecom.ntcb(b"*<FLEX\xb0\x14\x14", receiver=0, sender=1)),
+        )
+        for packet, expected in outgoing:
+            sock.sendall(packet)
+            stats["packets"] += 1
+            stats["bytes"] += len(packet)
+            stats["acks_ok"] += _recv_exact(sock, len(expected)) == expected
+        for i in range(0, len(records), chunk):
+            part = records[i : i + chunk]
+            packet = navtelecom.frame("A", b"".join(_flex_record(r) for r in part), count=len(part))
+            expected = navtelecom.frame("A", b"", count=len(part))
+            sock.sendall(packet)
+            stats["packets"] += 1
+            stats["bytes"] += len(packet)
+            stats["acks_ok"] += _recv_exact(sock, len(expected)) == expected
     return stats

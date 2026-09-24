@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tracker → gateway → platform end-to-end run.
 
-Simulated machines (sim/) speak Galileosky, EGTS and Wialon IPS over real TCP sockets to the
+Simulated machines (sim/) speak Galileosky, EGTS, Wialon IPS and Navtelecom FLEX over TCP to the
 gateway (gateway/), which forwards over HTTP to the platform server (platform/dev/server.ts,
 PostgreSQL via PGlite). The result is reconciled against what the trackers sent and against the
 simulator's ground truth; the archive is then re-sent to prove idempotency.
@@ -9,6 +9,7 @@ simulator's ground truth; the archive is then re-sent to prove idempotency.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
@@ -42,6 +43,9 @@ MACHINES = [
     {"profile": "timber_truck", "proto": "wialon_ips", "imei": "861230043345678", "hours": "can",
      "body": {"name": "Лесовоз КАМАЗ-43118", "category": "timber_truck", "chassis": "wheeled"},
      "mapping": Mapping(param_hours={"eng_hours": "ecu"}, param_mileage={"can_dist_km": "ecu"})},
+    {"profile": "dump_truck", "proto": "navtelecom_flex", "imei": "111111111111111", "hours": "can",
+     "body": {"name": "Модель карьерного самосвала (FLEX)", "category": "dump_truck", "chassis": "wheeled"},
+     "mapping": Mapping()},
 ]
 
 
@@ -65,7 +69,7 @@ def api(base: str, method: str, path: str, body=None, token: str | None = None):
         return e.code, json.loads(e.read() or b"null")
 
 
-def main() -> None:
+def main(output: pathlib.Path) -> None:
     port = free_port()
     env = {**os.environ, "PORT": str(port), "DATABASE_URL": "pglite:memory", "GATEWAY_TOKEN": TOKEN,
            "SETUP_KEY": "e2e-setup-key", "STATIC_DIR": str(ROOT / "platform" / "dist")}
@@ -94,7 +98,7 @@ def main() -> None:
 
         q = DurableQueue(":memory:")
         gw = Gateway(q, {m["imei"]: m["mapping"] for m in MACHINES})
-        ports = {p: free_port() for p in ("galileosky", "egts", "wialon_ips")}
+        ports = {p: free_port() for p in ("galileosky", "egts", "wialon_ips", "navtelecom_flex")}
         loop = asyncio.new_event_loop()
         started = threading.Event()
 
@@ -118,10 +122,14 @@ def main() -> None:
             res = run(m["profile"], start, 3, seed=7)
             recs = sorted(res.records, key=lambda r: r.t)
             sims[m["imei"]] = recs
-            send = {"galileosky": lambda h, p, i, rs, hm: uplink.send_galileosky(h, p, i, rs),
-                    "egts": uplink.send_egts, "wialon_ips": uplink.send_wialon}[m["proto"]]
-            stats = send("127.0.0.1", ports[m["proto"]], m["imei"], recs, m["hours"]) if m["proto"] != "galileosky" \
-                else send("127.0.0.1", ports["galileosky"], m["imei"], recs, None)
+            if m["proto"] == "navtelecom_flex":
+                stats = uplink.send_navtelecom("127.0.0.1", ports["navtelecom_flex"], m["imei"], recs)
+            else:
+                send = {"galileosky": lambda h, p, i, rs, hm: uplink.send_galileosky(h, p, i, rs),
+                        "egts": uplink.send_egts, "wialon_ips": uplink.send_wialon}[m["proto"]]
+                stats = send("127.0.0.1", ports[m["proto"]], m["imei"], recs, m["hours"])
+            if "acks_ok" in stats:
+                assert stats["acks_ok"] == stats["packets"], f"{m['proto']}: missing protocol ACK"
             m["send_stats"] = stats
             m["sim_s"] = round(time.time() - t0, 1)
 
@@ -164,6 +172,8 @@ def main() -> None:
                 "truth_path_km": round(truth_km, 3),
                 "freshness": s["freshness"],
             }
+            # The model emits at most one position for each valid fix timestamp.
+            assert tr["total"] == len(valid_t), f"{m['proto']}: valid fixes != stored positions"
 
         # idempotency: re-send everything (e.g. tracker re-uploads its archive after a reconnect)
         before = {m["id"]: m["result"]["positions_stored"] for m in MACHINES}
@@ -173,6 +183,8 @@ def main() -> None:
                 uplink.send_galileosky("127.0.0.1", ports["galileosky"], m["imei"], recs)
             elif m["proto"] == "egts":
                 uplink.send_egts("127.0.0.1", ports["egts"], m["imei"], recs, m["hours"])
+            elif m["proto"] == "navtelecom_flex":
+                uplink.send_navtelecom("127.0.0.1", ports["navtelecom_flex"], m["imei"], recs)
             else:
                 uplink.send_wialon("127.0.0.1", ports["wialon_ips"], m["imei"], recs, m["hours"])
         deadline = time.time() + 300
@@ -185,12 +197,13 @@ def main() -> None:
             _, tr = api(base, "GET", f"/api/machines/{m['id']}/track?from={frm}&to={to}", token=admin)
             m["result"]["positions_after_resend"] = tr["total"]
             m["result"]["duplicates_created"] = tr["total"] - before[m["id"]]
+            assert tr["total"] == before[m["id"]], f"{m['proto']}: replay added positions"
 
         for m in MACHINES:
             report["machines"].append({k: m[k] for k in ("profile", "proto", "imei", "body", "send_stats", "result")})
         report["gateway_stats"] = gw.stats
-        out = ROOT / "docs" / "evidence" / "gateway-e2e.json"
-        out.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=lambda o: o.hex() if isinstance(o, bytes) else str(o)))
+        output.write_text(json.dumps(report, ensure_ascii=False, indent=2,
+                                     default=lambda o: o.hex() if isinstance(o, bytes) else str(o)))
         print(json.dumps([{"machine": m["body"]["name"], **m["result"]} for m in MACHINES], ensure_ascii=False, indent=1))
         loop.call_soon_threadsafe(loop.stop)
     finally:
@@ -202,4 +215,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=pathlib.Path, default=ROOT / "docs" / "evidence" / "gateway-e2e.json",
+                        help="report path; defaults to docs/evidence/gateway-e2e.json")
+    main(parser.parse_args().output)

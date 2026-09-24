@@ -22,6 +22,8 @@ def main() -> None:
     token = os.environ["GATEWAY_TOKEN"]
     q = DurableQueue(os.environ.get("QUEUE_PATH", "itles-gateway.sqlite3"))
     ports = {k: int(os.environ.get(f"PORT_{k.upper()}", v)) for k, v in DEFAULT_PORTS.items()}
+    if os.environ.get("PORT_NAVTELECOM_FLEX"):
+        ports["navtelecom_flex"] = int(os.environ["PORT_NAVTELECOM_FLEX"])
     mappings: dict[str, Mapping] = {}
     if os.environ.get("MAPPINGS_FILE"):
         with open(os.environ["MAPPINGS_FILE"], encoding="utf-8") as f:

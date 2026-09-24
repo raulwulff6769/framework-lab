@@ -19,7 +19,7 @@ from itles_gateway.forwarder import Forwarder  # noqa: E402
 from itles_gateway.protocols.egts import EgtsSession  # noqa: E402
 from itles_gateway.protocols.galileosky import GalileoskySession, parse_packet  # noqa: E402
 from itles_gateway.protocols.retranslator import RetranslatorSession  # noqa: E402
-from itles_gateway.protocols.wialon_ips import WialonIpsSession  # noqa: E402
+from itles_gateway.protocols.wialon_ips import WialonIpsSession, parse_data_body  # noqa: E402
 from itles_gateway.queue import DurableQueue  # noqa: E402
 from itles_gateway.records import Mapping  # noqa: E402
 from sim.protocols import egts as sim_egts  # noqa: E402
@@ -109,6 +109,32 @@ def test_wialon_ips_round_trip_params_and_blackbox():
     assert abs(r["lat"] - 61.784912) < 1e-6 and abs(r["lon"] + 34.346901) < 1e-6
     (recs, ack), = s.feed(sim_wialon.blackbox([m] * 3))
     assert ack == b"#AB#3\r\n" and len(recs) == 3
+
+
+@pytest.mark.parametrize(("sats", "hdop", "valid"), [
+    (2, 0.9, False), (2, 99, False), (3, 0.9, True), (4, 49.9, True), (4, 50, False),
+    (4, -1, False), (12, float("nan"), True),
+])
+def test_wialon_ips_gnss_quality_keeps_counters(sats, hdop, valid):
+    m = sim_wialon.WialonMessage(t=1789466400, lat=1.25, lon=-150.25, speed_kmh=0, course=0,
+                                 alt_m=100, sats=sats, hdop=hdop, inputs=1, params={"can_engine_hours": 4521.0})
+    s = WialonIpsSession()
+    s.feed(sim_wialon.login("111111111111111"))
+    (records, ack), = s.feed(sim_wialon.data(m))
+    assert ack == b"#AD#1\r\n"
+    assert len(records) == 1 and records[0]["engine_hours"] == 4521.0
+    assert ("lat" in records[0] and "lon" in records[0]) is valid
+    if hdop != hdop:
+        assert "hdop" not in records[0]
+
+
+def test_wialon_ips_invalid_coordinate_is_omitted_without_losing_counters():
+    m = sim_wialon.WialonMessage(t=1789466400, lat=1.25, lon=-150.25, speed_kmh=0, course=0,
+                                 alt_m=100, sats=12, hdop=0.9, inputs=1, params={"can_engine_hours": 4521.0})
+    fields = sim_wialon._body(m).split(";")
+    fields[2] = "nan"
+    rec = parse_data_body(fields, Mapping(), short=False)
+    assert rec == {"t": m.t, "engine_hours": 4521.0, "engine_hours_method": "ecu"}
 
 
 def _egts_response_ok(resp: bytes, pid: int) -> None:

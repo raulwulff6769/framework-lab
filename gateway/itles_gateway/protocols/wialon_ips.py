@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import calendar
+import math
 
 from ..crc import crc16_arc
 from ..records import Mapping, apply_sensors, clean, params_to_counters
@@ -12,7 +13,8 @@ def _num(s: str) -> float | None:
     if s in ("", "NA"):
         return None
     try:
-        return float(s)
+        value = float(s)
+        return value if math.isfinite(value) else None
     except ValueError:
         return None
 
@@ -20,9 +22,14 @@ def _num(s: str) -> float | None:
 def _coord(value: str, hemi: str, deg_digits: int) -> float | None:
     if value in ("", "NA") or hemi in ("", "NA"):
         return None
-    v = float(value)
+    v = _num(value)
+    if v is None or v < 0 or hemi not in (("N", "S") if deg_digits == 2 else ("E", "W")):
+        return None
     deg = int(v // 100)
-    res = deg + (v - deg * 100) / 60
+    minutes = v - deg * 100
+    res = deg + minutes / 60
+    if not 0 <= minutes < 60 or res > (90 if deg_digits == 2 else 180):
+        return None
     return -res if hemi in ("S", "W") else res
 
 
@@ -55,12 +62,14 @@ def parse_data_body(fields: list[str], mapping: Mapping, short: bool) -> dict | 
     rec: dict = {"t": t}
     lat = _coord(fields[2], fields[3], 2)
     lon = _coord(fields[4], fields[5], 3)
-    if lat is not None and lon is not None:
+    sats = _num(fields[9])
+    hdop = _num(fields[10]) if not short else None
+    if (lat is not None and lon is not None
+            and (sats is None or sats >= 3) and (hdop is None or 0 <= hdop < 50)):
         rec.update(lat=lat, lon=lon, speed_kmh=_num(fields[6]), course=_num(fields[7]), alt=_num(fields[8]))
-        sats = _num(fields[9])
         rec["sats"] = int(sats) if sats is not None else None
         if not short:
-            rec["hdop"] = _num(fields[10])
+            rec["hdop"] = hdop
     if not short:
         params = parse_params(fields[15])
         params_to_counters(params, mapping, rec)

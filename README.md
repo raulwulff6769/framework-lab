@@ -7,8 +7,8 @@
 | Часть | Где | Проверка |
 |---|---|---|
 | API + веб-кабинет + лендинг + «Телефон в кабине» | `platform/` | `cd platform && pnpm test` (PGlite; `TEST_DATABASE_URL=postgres://…` — на PostgreSQL), `pnpm e2e` (Playwright) |
-| Шлюз трекеров (EGTS, Wialon IPS, Galileosky, Wialon Retranslator) | `gateway/` | `python -m pytest tests` (реальные пакеты устройств) |
-| Сквозной прогон трекер → шлюз → платформа | `scripts/gateway_e2e.py` | `docs/evidence/gateway-e2e.json` |
+| Шлюз трекеров (EGTS, Wialon IPS, Galileosky, Wialon Retranslator; ограниченный FLEX 1.0/2.0) | `gateway/` | `python -m pytest tests` (пакеты из набора Traccar для прежних протоколов; примеры производителя и имитатор для FLEX) |
+| Сквозной прогон трекер → шлюз → платформа | `scripts/gateway_e2e.py` | `.venv/bin/python scripts/gateway_e2e.py --output /tmp/itles-gateway-e2e.json` (отчёт вне Git); `docs/evidence/gateway-e2e.json` — архивный прогон трёх машин |
 | Проверка одометрии | `scripts/odometry_validation.py` | `docs/evidence/odometry-validation.json` |
 | Windows / Android | `apps/desktop`, `apps/mobile` | прежние сборки — в [релизе v0.3.0](https://github.com/clutteredcal/ITles/releases/tag/v0.3.0); наличие файлов не заменяет проверку на реальных устройствах |
 
@@ -17,6 +17,16 @@
 Файловая SQLite-очередь шлюза требует POSIX-файловых прав и каталога без записи
 для других пользователей; запускать её на доверенном Linux/POSIX-сервере, не
 в общем каталоге. Windows-приложение — отдельный клиент, не серверный шлюз.
+Приём NTCB/FLEX включается отдельно: `PORT_NAVTELECOM_FLEX=<выбранный порт>`.
+Для FLEX 1.0/2.0 проверены базовые поля моточасов, пробега и координат по
+публичным примерам производителя и синтетическому TCP-прогону, **не по
+смонтированному терминалу**. Поддерживается незашифрованный NTCB с преамбулой
+`@NTC` для идентификации и согласования FLEX, а не старые команды телеметрии NTCB.
+FLEX 3.0 запрашивается понизить до 2.0; пользовательские поля 207+ для
+Modbus-масла, произвольные преамбулы и шифрование не поддерживаются. До пилота
+нужна сквозная политика отключения координат на шлюзе и проверка терминала на стенде.
+Для счётчиков в маске обязательно поле 3 (время события); при нулевом времени
+счётчики нельзя корректно датировать, и они не передаются в API.
 Vercel: из корня `pnpm --dir platform build:vercel` формирует `platform/.vercel/output` (Build Output API v3); состояние действующего проекта и порядок безопасного обновления — в [операционном руководстве](docs/operations/vercel.md). Для локального превью лендинга и API: из корня `npm run dev` (зависимости платформы установятся, сборка создаст `platform/dist`, сервер запустится на `:5173` с локальной PGlite).
 
 ---

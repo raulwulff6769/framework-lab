@@ -7,6 +7,7 @@ import logging
 
 from .protocols.egts import EgtsSession
 from .protocols.galileosky import GalileoskySession
+from .protocols.navtelecom_flex import FlexSession
 from .protocols.retranslator import RetranslatorSession
 from .protocols.wialon_ips import WialonIpsSession
 from .queue import DurableQueue
@@ -19,6 +20,7 @@ SESSIONS = {
     "wialon_ips": WialonIpsSession,
     "egts": EgtsSession,
     "wialon_retranslator": RetranslatorSession,
+    "navtelecom_flex": FlexSession,
 }
 IDLE_TIMEOUT_S = 15 * 60
 
