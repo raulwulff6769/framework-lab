@@ -198,9 +198,15 @@ export function Connect({ me }: { me: Me }) {
             <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm space-y-2" data-testid="autograph-paths">
               <p><b>Как данные АвтоГРАФ попадают в Отсчёт.</b> Выберите путь, который уже есть у вашего дилера ТехноКом:</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li><b className="text-foreground">API АвтоГРАФ.WEB</b> — эта форма: без нового оборудования и перенастройки контроллеров.</li>
-                <li><b className="text-foreground">Второй сервер контроллера</b> — АвтоГРАФ серии X передаёт копию данных по EGTS или Wialon IPS 2.1 прямо в шлюз Отсчёта, основной сервер дилера продолжает работать. Адрес шлюза выдаётся при пилоте.</li>
-                <li><b className="text-foreground">Ретрансляция АвтоГРАФ.Сервер</b> — сервер дилера пересылает весь парк по EGTS в шлюз Отсчёта.</li>
+                <li><b className="text-foreground">Уже есть мониторинг</b> — эта форма. Отсчёт только читает данные из вашего мониторинга: без нового оборудования и без перенастройки контроллеров.</li>
+                <li>
+                  <b className="text-foreground">Второй сервер контроллера</b> — контроллер передаёт копию данных в Отсчёт параллельно, не отрывая их от основного сервера дилера. Адрес шлюза выдаётся при пилоте.
+                  <div className="text-[11px] text-muted-foreground/80">EGTS или Wialon IPS 2.1, на выбор дилера.</div>
+                </li>
+                <li>
+                  <b className="text-foreground">Пересылка всего парка</b> — дилер пересылает данные всех машин в Отсчёт параллельно, работа его основного сервера не меняется.
+                  <div className="text-[11px] text-muted-foreground/80">EGTS.</div>
+                </li>
               </ol>
               <div className="flex flex-wrap gap-2 pt-1">
                 <button type="button" className="btn-ghost" disabled={busy || testBusy} onClick={() => { setF((old) => ({ org_id: old.org_id ?? '', base_url: 'https://demo.tk-nav.com', username: 'demo', password: 'demo', label: 'АвтоГРАФ — публичное демо ТехноКом' })); setDemoExpires(null); setTestResult(null); setErr(null); }}>

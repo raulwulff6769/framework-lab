@@ -65,10 +65,10 @@ function ReadingForm({ id, onDone }: { id: string; onDone: () => void }) {
 }
 
 const PATH_RU: Record<string, string> = {
-  gateway: 'напрямую на шлюз Отсчёта (TCP)',
-  wialon_local: 'через Wialon Local интегратора → ретранслятор Wialon Retranslator',
-  omnicomm_online: 'через Omnicomm Online → ретрансляция EGTS',
-  traccar: 'через сервер Traccar → подключение API',
+  gateway: 'напрямую на сервер приёма Отсчёта',
+  wialon_local: 'через мониторинг интегратора (Wialon Local)',
+  omnicomm_online: 'через мониторинг Omnicomm Online',
+  traccar: 'через сервер Traccar (подключение API)',
 };
 
 function SourcesBlock({ id, sources, canManage, onChange }: { id: string; sources: any[]; canManage: boolean; onChange: () => void }) {

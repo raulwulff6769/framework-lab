@@ -7,10 +7,10 @@ import { api, ago, fmt } from '../api';
 import { ErrorLine, Modal, useAsync } from '../ui';
 
 const PATH_RU: Record<string, string> = {
-  gateway: 'трекер → шлюз Отсчёта (TCP)',
-  wialon_local: 'трекер → Wialon Local → ретранслятор → шлюз Отсчёта',
-  omnicomm_online: 'трекер → Omnicomm Online → EGTS → шлюз Отсчёта',
-  traccar: 'трекер → Traccar → API → Отсчёт',
+  gateway: 'трекер → сервер приёма Отсчёта',
+  wialon_local: 'мониторинг интегратора → пересылка в Отсчёт',
+  omnicomm_online: 'мониторинг Omnicomm → пересылка в Отсчёт',
+  traccar: 'сервер Traccar → Отсчёт забирает данные по API',
 };
 const PROTO_RU: Record<string, string> = {
   galileosky: 'Galileosky (бинарный, теги)',
@@ -159,7 +159,7 @@ export function Stand({ me }: { me: Me }) {
           <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2">Машина / трекер</th>
-              <th className="px-3 py-2">Протокол и путь</th>
+              <th className="px-3 py-2">Путь данных</th>
               <th className="px-3 py-2">Связь</th>
               <th className="px-3 py-2">Сейчас на машине</th>
               <th className="px-3 py-2">В Отсчёте</th>
@@ -177,8 +177,8 @@ export function Stand({ me }: { me: Me }) {
                   </button>
                 </td>
                 <td className="px-3 py-2 text-xs">
-                  <div>{PROTO_RU[m.protocol] ?? m.protocol}</div>
-                  <div className="text-muted-foreground">{PATH_RU[m.path] ?? m.path}</div>
+                  <div>{PATH_RU[m.path] ?? m.path}</div>
+                  <div className="text-[11px] text-muted-foreground/80">{PROTO_RU[m.protocol] ?? m.protocol}</div>
                   {m.endpoint && <div className="font-mono text-[11px] text-muted-foreground">{m.endpoint}</div>}
                 </td>
                 <td className="px-3 py-2 text-xs">
