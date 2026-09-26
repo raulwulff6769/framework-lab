@@ -569,7 +569,7 @@ const KEYS: Key[] = [
   K(13.36, 3.8, -0.8, -1.1, 10.2, 11, 40, 36, -1.3, 0.62),
 ];
 /** Portrait framing: the machine needs a longer lens distance than the map. */
-const pm = (i: number) => (L.portrait ? (i <= 2 ? 2.25 : 1.6) : 1);
+const pm = (i: number) => (L.portrait ? (i <= 2 ? 2.25 : 2.15) : 1);
 function camera(F: Frame, t: number) {
   let i = 0;
   while (i < KEYS.length - 2 && t > KEYS[i + 1].t) i++;
