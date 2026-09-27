@@ -1,3 +1,5 @@
+**Обновление 27.09.2026, 07:xx UTC:** production `itles.vercel.app` + `prosvet.bond` READY, бандл `landing-Du5YNVtQ.js` (совпал с локальной сборкой ветки `work/kyzikos`, коммит 76b68e3). Деплой prebuilt через `vercel deploy --prebuilt --prod` (Build Output API v3 из `.vercel/output`). Изменение: на телефоне (portrait) камера сцены «Нет сети — данные ждут» плавно ведётся вправо к мачте, пока едет точка, — столб и досыл к нему теперь в кадре (проверено скриншотами 390×844). Desktop-раскладка не тронута (pan только при L.portrait). БД не менялась.
+
 # Vercel: состояние, безопасная проверка и переход на Git-деплой
 
 **Обновление 26.09.2026, 05:40 UTC:** production `itles.vercel.app` READY из
