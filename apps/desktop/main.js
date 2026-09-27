@@ -14,7 +14,7 @@ function createWindow() {
     width: 1360,
     height: 900,
     title: 'Отсчёт',
-    backgroundColor: '#000000',
+    backgroundColor: '#0a0907', // brand graphite — flows out of the intro without a flash
     icon: path.join(__dirname, 'icon.ico'),
     webPreferences: { contextIsolation: true, sandbox: true },
   });

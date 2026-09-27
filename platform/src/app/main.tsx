@@ -22,6 +22,7 @@ import { Stand } from './pages/Stand';
 import { Knowledge } from './pages/Knowledge';
 import { can, sees, type Me } from './perm';
 import { useDialog } from './ui';
+import { LaunchIntro } from './intro';
 
 export type { Me } from './perm';
 
@@ -46,17 +47,6 @@ const TAB_LABEL: Record<string, string> = {
   Настройки: 'Настрой\u00adки',
 };
 
-function Splash() {
-  return (
-    <div className="grid min-h-full place-items-center p-10">
-      <div className="flex flex-col items-center gap-4 text-muted-foreground">
-        <BrandSymbol spinning className="h-12 w-12 text-foreground" />
-        <span className="eyebrow">Загрузка…</span>
-      </div>
-    </div>
-  );
-}
-
 function MenuSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useDialog(panel, onClose, false);
@@ -79,6 +69,7 @@ function MenuSheet({ onClose, children }: { onClose: () => void; children: React
 function App() {
   const hash = useHash();
   const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const [booted, setBooted] = useState(false);
   const [preferenceError, setPreferenceError] = useState('');
   const [sheet, setSheet] = useState(false);
   useEffect(() => setSheet(false), [hash]);
@@ -105,7 +96,7 @@ function App() {
 
   // the cab screen works with a device token and without a user session
   if (hash.startsWith('#/cab')) return <Cab />;
-  if (me === undefined) return <Splash />;
+  if (!booted || me === undefined) return <LaunchIntro ready={me !== undefined} onDone={() => setBooted(true)} />;
   if (me === null) return <Login onDone={load} />;
 
   const logout = async () => {

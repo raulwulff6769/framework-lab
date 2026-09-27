@@ -427,3 +427,116 @@ input[type='file']::file-selector-button:hover {
   padding: 0.05rem 0.3rem;
   font-size: 0.82em;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Cold-launch intro (app/intro.tsx) — the count-from-zero gesture of the brand.
+ * The dial ring draws, the index dot ignites, the wordmark settles. One weighted
+ * beat (~1s), then the whole stage lifts to reveal the cabinet. Matches the
+ * pre-DOM splash baked into index.html so there is never a white flash or a jump.
+ * ───────────────────────────────────────────────────────────────────────── */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  gap: 0;
+  background:
+    radial-gradient(120% 88% at 50% 42%, color-mix(in oklab, var(--signal) 8%, var(--bg)) 0%, var(--bg) 60%);
+  color: var(--fg);
+  padding: 8vmin;
+  transition:
+    opacity 0.44s var(--ease-out),
+    transform 0.44s var(--ease-out),
+    filter 0.44s var(--ease-out);
+  will-change: opacity, transform;
+}
+.intro--leaving {
+  opacity: 0;
+  transform: scale(1.035);
+  filter: blur(2px);
+  pointer-events: none;
+}
+.intro__grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: radial-gradient(color-mix(in oklab, var(--fg) 5%, transparent) 0.6px, transparent 0.6px);
+  background-size: 3px 3px;
+  mask-image: radial-gradient(120% 88% at 50% 42%, #000 0%, transparent 72%);
+}
+.intro__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 3.2vmin, 26px);
+}
+.intro__mark {
+  display: block;
+  width: clamp(48px, 11vmin, 84px);
+  height: clamp(48px, 11vmin, 84px);
+  color: var(--fg);
+}
+/* ring draws itself */
+.intro__mark svg > circle {
+  stroke-dasharray: 106;
+  stroke-dashoffset: 106;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(-96deg);
+  animation: intro-draw 0.66s var(--ease-out) 0.06s both;
+}
+/* index dot ignites once the ring is nearly closed */
+.intro__mark svg > g {
+  transform-box: fill-box;
+  transform-origin: 63% 27%;
+  animation: intro-spark 0.5s var(--ease-spring, cubic-bezier(0.2, 0.9, 0.3, 1.4)) 0.5s both;
+}
+.intro__word {
+  display: block;
+  width: clamp(150px, 34vmin, 262px);
+  height: clamp(38px, 8.5vmin, 66px);
+  color: var(--fg);
+  clip-path: inset(0 100% 0 0);
+  animation: intro-word 0.62s var(--ease-out) 0.44s both;
+}
+.intro__tag {
+  position: absolute;
+  bottom: clamp(28px, 9vh, 84px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--fg-3);
+  opacity: 0;
+  animation: intro-tag 0.6s var(--ease-out) 0.82s both;
+}
+@keyframes intro-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes intro-spark {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.14); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes intro-word {
+  from { clip-path: inset(0 100% 0 0); transform: translateY(4%); }
+  to { clip-path: inset(0 0 0 0); transform: translateY(0); }
+}
+@keyframes intro-tag {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro__mark svg > circle,
+  .intro__mark svg > g,
+  .intro__word,
+  .intro__tag {
+    animation: intro-calm 0.24s ease both;
+  }
+  .intro__mark svg > circle { stroke-dashoffset: 0; }
+  .intro__word { clip-path: inset(0 0 0 0); }
+  .intro__tag { opacity: 1; }
+  @keyframes intro-calm { from { opacity: 0; } to { opacity: 1; } }
+}
