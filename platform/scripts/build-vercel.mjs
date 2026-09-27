@@ -37,6 +37,11 @@ writeFileSync(
         .companies.filter((c) => c.platform === 'wialon' || c.platform === 'aemp')
         .map((c) => ({ src: '^/(.*)$', has: [{ type: 'host', value: new URL(c.base_url).host }], dest: '/api/index' })),
       { src: '^/api/(.*)$', dest: '/api/index' },
+      // Content-hashed build output (JS/CSS/fonts/workers) never changes under a given name,
+      // so it is cached for a year. Without this the platform default is max-age=0,
+      // must-revalidate — every asset is revalidated on every load, which is slow on distant
+      // or throttled links. index.html / sw.js stay uncached so new deploys are picked up.
+      { src: '^/assets/(.*)$', headers: { 'cache-control': 'public, max-age=31536000, immutable' }, continue: true },
       { handle: 'filesystem' },
     ],
     crons: [{ path: '/api/cron/daily', schedule: '0 3 * * *' }],
