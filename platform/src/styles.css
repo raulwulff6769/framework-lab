@@ -57,6 +57,11 @@
   #root {
     height: 100%;
   }
+  /* root canvas + overscroll backstop track the active theme, so scrolling past
+     the page (or the transparent scrollbar track) never reveals the other theme */
+  html {
+    background: var(--bg);
+  }
   /* keep focused/scrolled-to controls clear of the sticky header and the fixed tab bar */
   @media (max-width: 767px) {
     html {

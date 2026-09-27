@@ -19,7 +19,11 @@ export function setTheme(t: Theme, persist = true) {
     // private mode: keep in memory only
   }
   document.documentElement.classList.toggle('dark', t === 'dark');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#0a0907' : '#f2ebdd');
+  const bg = t === 'dark' ? '#0a0907' : '#f2ebdd';
+  // keep the pre-paint inline <html> background in sync on every toggle — otherwise it
+  // stays frozen at the value set on first load and bleeds the other theme in overscroll
+  document.documentElement.style.background = bg;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
   window.dispatchEvent(new CustomEvent('itles-theme', { detail: t }));
   if (persist) savePreferences({ theme: t });
 }

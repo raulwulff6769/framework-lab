@@ -9,8 +9,8 @@
     <link rel="manifest" href="../manifest.webmanifest?v=4" />
     <link rel="preload" href="../src/brand/fonts/onest-var.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#0a0907" />
-    <style id="pre-paint">html,body{margin:0;background:#0a0907}#root{min-height:100%}</style>
-    <script>try{if(localStorage.getItem("itles_theme")!=="light")document.documentElement.classList.add("dark");else{document.querySelector('meta[name="theme-color"]').setAttribute("content","#f2ebdd");document.documentElement.style.background="#f2ebdd"}}catch(e){document.documentElement.classList.add("dark")}</script>
+    <style id="pre-paint">html,body{margin:0}html{background:#0a0907}#root{min-height:100%}</style>
+    <script>try{var d=document.documentElement,light=localStorage.getItem("itles_theme")==="light";d.classList.toggle("dark",!light);var bg=light?"#f2ebdd":"#0a0907";d.style.background=bg;var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",bg)}catch(e){document.documentElement.classList.add("dark")}</script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Отсчёт" />
     <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=4" />
