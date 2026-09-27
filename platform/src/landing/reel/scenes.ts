@@ -575,7 +575,9 @@ function camera(F: Frame, t: number) {
   while (i < KEYS.length - 2 && t > KEYS[i + 1].t) i++;
   const a = KEYS[i], b = KEYS[i + 1];
   const s = inOutCubic(range(t, a.t, b.t));
-  const pan = L.portrait ? -1.8 * smooth(range(t, 11.45, 12.5)) : 0;
+  // Portrait frame is narrow: as the stored point travels toward the mast, ease the
+  // camera rightward to follow it so the coverage mast (столб) is pulled fully into frame.
+  const pan = L.portrait ? 2.1 * smooth(range(t, 11.3, 13.1)) : 0;
   const ox = L.portrait ? pan : lerp(a.lx, b.lx, s), oy = L.portrait ? lerp(a.py, b.py, s) : 0;
   F.cam.set(lerp(a.tx, b.tx, s) + ox, lerp(a.ty, b.ty, s) + oy, lerp(a.tz, b.tz, s), lerp(a.d * pm(i), b.d * pm(i + 1), s), lerp(a.az, b.az, s), lerp(a.el, b.el, s), lerp(a.fov, b.fov, s), L.W, L.H);
 }
