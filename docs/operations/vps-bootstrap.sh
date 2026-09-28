@@ -10,7 +10,11 @@
 #
 # Set these before running (the script refuses to start without them):
 #   export DATABASE_URL='postgresql://USER:PASS@ep-calm-hall-awak5tvl.../neondb?sslmode=require'
-#   export SETUP_KEY='<long-random-admin-key>'
+#   export SETUP_KEY='<admin-setup-key>'
+#   # For a faithful prod replica on the shared Neon DB, ALSO export these (same values as Vercel prod):
+#   export GATEWAY_TOKEN='<prod value>'   # REQUIRED for the stand/gateway -> API data pipeline
+#   export APP_SECRET='<prod value>'      # session/token signing (keep same as prod)
+#   export CRON_SECRET='<prod value>'     # optional on VPS, set for parity
 #   # optional: export APP_DIR="$HOME/itles"  PORT=8787
 set -euo pipefail
 
@@ -53,12 +57,18 @@ pnpm --dir "$APP_DIR/platform" build
 test -f "$APP_DIR/platform/dist/index.html" && echo "dist OK" || { echo "!! build produced no dist"; exit 1; }
 
 say "4) systemd service on 127.0.0.1:$PORT (DB = your Neon — Phase A, zero data migration)"
-sudo tee /etc/itles.env >/dev/null <<EOF
-PORT=$PORT
-STATIC_DIR=dist
-DATABASE_URL=$DATABASE_URL
-SETUP_KEY=$SETUP_KEY
-EOF
+# Write only the vars that are set. DATABASE_URL + SETUP_KEY are required (checked above);
+# GATEWAY_TOKEN/APP_SECRET/CRON_SECRET are written when exported, so the VPS matches prod.
+{
+  echo "PORT=$PORT"
+  echo "STATIC_DIR=dist"
+  echo "NODE_ENV=production"
+  echo "DATABASE_URL=$DATABASE_URL"
+  echo "SETUP_KEY=$SETUP_KEY"
+  [ -n "${GATEWAY_TOKEN:-}" ] && echo "GATEWAY_TOKEN=$GATEWAY_TOKEN"
+  [ -n "${APP_SECRET:-}" ]    && echo "APP_SECRET=$APP_SECRET"
+  [ -n "${CRON_SECRET:-}" ]   && echo "CRON_SECRET=$CRON_SECRET"
+} | sudo tee /etc/itles.env >/dev/null
 sudo chmod 600 /etc/itles.env
 TSX="$APP_DIR/platform/node_modules/.bin/tsx"
 sudo tee /etc/systemd/system/itles.service >/dev/null <<EOF

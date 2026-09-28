@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/raulwulff6769/framework-lab/otschet
 Скрипт `docs/operations/vps-bootstrap.sh`, владелец запускает на VPS (пошагово, идемпотентно):
 1. Node 20 + pnpm + git; клон `framework-lab@otschet-current` в `~/itles`.
 2. Сборка SPA (`pnpm --dir platform build` → `dist`).
-3. Единый процесс `dev/server.ts` как systemd-сервис `itles` на `127.0.0.1:8787`; `DATABASE_URL` = строка Neon (egress VPS→Neon работает — проверяется receiver-скриптом).
+3. Единый процесс `dev/server.ts` как systemd-сервис `itles` на `127.0.0.1:8787`; `DATABASE_URL` = строка Neon (egress VPS→Neon работает — проверяется receiver-скриптом). Для точной копии прода задать те же секреты, что в Vercel: `GATEWAY_TOKEN` (обязателен — по нему стенд/шлюз авторизуется в API, 20 обращений в коде), `APP_SECRET` (подпись сессий/токенов), `CRON_SECRET` (для паритета). `SETUP_KEY` — как в проде.
 4. `cloudflared`: `tunnel login → create → route dns ВАШ.ДОМЕН`, ingress → `http://127.0.0.1:8787`, `service install` (автозапуск). Домен открывается из РФ без VPN.
 > В фазе A «базы Vercel» (Neon) остаются ЕДИНСТВЕННОЙ БД — все новые данные и так пишутся в Neon, зеркалировать нечего, миграции данных нет.
 
