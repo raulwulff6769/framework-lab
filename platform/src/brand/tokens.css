@@ -74,6 +74,9 @@
   --chart-3: #1f6feb;
   --chart-4: #b45309;
   --chart-5: #6d28d9;
+  /* skeleton shimmer stops — concrete rgba (ink on paper), universal, no color-mix */
+  --skeleton-base: rgb(14 12 9 / 0.07);
+  --skeleton-shine: rgb(14 12 9 / 0.13);
   --shadow-pop: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 12px 32px -12px rgb(14 12 9 / 0.28), 0 2px 6px -2px rgb(14 12 9 / 0.12);
   --shadow-card: 0 1px 2px rgb(14 12 9 / 0.05);
   color-scheme: light;
@@ -101,6 +104,9 @@
   --chart-3: #7db7ff;
   --chart-4: #f5b83d;
   --chart-5: #b79be8;
+  /* skeleton shimmer stops — concrete rgba (cream on ink), universal, no color-mix */
+  --skeleton-base: rgb(242 235 221 / 0.07);
+  --skeleton-shine: rgb(242 235 221 / 0.14);
   --shadow-pop: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 24px 48px -16px rgb(0 0 0 / 0.7), 0 2px 8px -2px rgb(0 0 0 / 0.5);
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset;
   color-scheme: dark;

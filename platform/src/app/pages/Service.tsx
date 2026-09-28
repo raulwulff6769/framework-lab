@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Me } from '../main';
 import { go } from '../main';
 import { api, fmt } from '../api';
-import { ErrorLine, useAsync } from '../ui';
+import { ErrorLine, SkeletonRows, useAsync } from '../ui';
 
 export function Service({ me }: { me: Me }) {
   const [sort, setSort] = useState<'priority' | 'hours' | 'date'>('priority');
@@ -70,6 +70,7 @@ export function Service({ me }: { me: Me }) {
                 </td>
               </tr>
             ))}
+            {res.loading && <SkeletonRows cols={5} />}
             {!res.loading && items.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">

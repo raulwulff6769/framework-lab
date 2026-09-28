@@ -3,7 +3,7 @@ import { Combine, Construction, Cog, Forklift, Tractor, Truck, Wheat } from 'luc
 import { can, sees, type Me } from '../perm';
 import { go } from '../main';
 import { api, CATEGORY_RU, fmt, METHOD_RU } from '../api';
-import { ErrorLine, Fresh, Modal, useAsync } from '../ui';
+import { ErrorLine, Fresh, Modal, SkeletonRows, useAsync } from '../ui';
 import { GisMap, type GisMarker } from '../map/GisMap';
 import { StatusDot, fmtSensor } from '../oil';
 
@@ -265,6 +265,11 @@ export function Fleet({ me }: { me: Me }) {
                 </td>
               </tr>
             ))}
+            {res.loading && (
+              <SkeletonRows
+                cols={1 + (me.org_kind !== 'customer' ? 1 : 0) + (sees(me, 'hours') ? 1 : 0) + (sees(me, 'mileage') ? 1 : 0) + (sees(me, 'fuel') || sees(me, 'oil') ? 1 : 0) + (sees(me, 'map') ? 1 : 0) + 1}
+              />
+            )}
             {!res.loading && shown.length === 0 && (
               <tr>
                 <td colSpan={1 + (me.org_kind !== 'customer' ? 1 : 0) + (sees(me, 'hours') ? 1 : 0) + (sees(me, 'mileage') ? 1 : 0) + (sees(me, 'fuel') || sees(me, 'oil') ? 1 : 0) + (sees(me, 'map') ? 1 : 0) + 1} className="px-4 py-10 text-center text-muted-foreground">

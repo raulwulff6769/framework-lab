@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Me } from '../perm';
 import { api } from '../api';
-import { ErrorLine, useAsync } from '../ui';
+import { ErrorLine, SkeletonRows, useAsync } from '../ui';
 
 const ACTION_RU: Record<string, string> = {
   org_created: 'создана организация',
@@ -81,6 +81,7 @@ export function Audit({ me }: { me: Me }) {
                 </td>
               </tr>
             ))}
+            {r.loading && <SkeletonRows cols={5} />}
             {!r.loading && !rows.length && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">

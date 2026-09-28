@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -100,6 +100,28 @@ export function ErrorLine({ e }: { e: unknown }) {
       <AlertCircle className="mt-px h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
       <span className="min-w-0 break-words">{(e as Error).message ?? String(e)}</span>
     </div>
+  );
+}
+
+/** A single shimmering placeholder block; height/width come from className/style. */
+export function Skeleton({ className = '', style }: { className?: string; style?: CSSProperties }) {
+  return <span className={`skeleton block ${className}`} style={style} aria-hidden="true" />;
+}
+
+/** Placeholder table rows shown while data loads — holds the layout so the table never flashes empty. */
+export function SkeletonRows({ rows = 6, cols }: { rows?: number; cols: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }, (_, r) => (
+        <tr key={r} className="border-b border-border last:border-0" aria-hidden="true">
+          {Array.from({ length: cols }, (_, c) => (
+            <td key={c} className="px-4 py-3.5">
+              <Skeleton className="h-3.5" style={{ width: c === 0 ? '65%' : `${38 + ((r + c) % 3) * 9}%` }} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
   );
 }
 
