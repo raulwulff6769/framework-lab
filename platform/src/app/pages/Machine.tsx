@@ -615,11 +615,11 @@ export function MachinePage({ id, me }: { id: string; me: Me }) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="card p-5">
             <div className="label">Моточасы по дням, 30 дней</div>
-            {sees(me, 'hours') ? <Bars data={days.map((d: any) => ({ label: d.day, value: d.engine_hours }))} unit="ч" color="#1f6feb" /> : <Hidden block="hours" />}
+            {sees(me, 'hours') ? <Bars data={days.map((d: any) => ({ label: d.day, value: d.engine_hours }))} unit="ч" color="var(--chart-3)" /> : <Hidden block="hours" />}
           </div>
           <div className="card p-5">
             <div className="label">Пробег по ГНСС по дням, км</div>
-            {sees(me, 'mileage') ? <Bars data={days.map((d: any) => ({ label: d.day, value: d.gnss_km }))} unit="км" color="#10b981" /> : <Hidden block="mileage" />}
+            {sees(me, 'mileage') ? <Bars data={days.map((d: any) => ({ label: d.day, value: d.gnss_km }))} unit="км" color="var(--chart-2)" /> : <Hidden block="mileage" />}
           </div>
         </div>
       )}

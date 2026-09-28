@@ -314,9 +314,9 @@ export function MachineTimeline({ id, geofences, liveTick }: { id: string; geofe
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {speedSeries.length > 1 && <Chart points={speedSeries} from={from} to={to} t={t} unit="км/ч" color="#22c55e" label="Скорость (ГНСС)" onSeek={setT} />}
+        {speedSeries.length > 1 && <Chart points={speedSeries} from={from} to={to} t={t} unit="км/ч" color="var(--chart-2)" label="Скорость (ГНСС)" onSeek={setT} />}
         {(['rpm', 'fuel_level_l', 'fuel_level_pct', 'coolant_temp_c', 'engine_load_pct', 'oil_pressure_kpa'] as const).map((k) =>
-          s[k]?.length > 1 ? <Chart key={k} points={s[k]} from={from} to={to} t={t} unit={SENSORS[k].unit} color={k.startsWith('fuel') ? '#0ea5e9' : k === 'rpm' ? '#8b5cf6' : '#f97316'} label={SENSORS[k].label} onSeek={setT} /> : null,
+          s[k]?.length > 1 ? <Chart key={k} points={s[k]} from={from} to={to} t={t} unit={SENSORS[k].unit} color={k.startsWith('fuel') ? 'var(--chart-3)' : k === 'rpm' ? 'var(--chart-5)' : 'var(--chart-4)'} label={SENSORS[k].label} onSeek={setT} /> : null,
         )}
       </div>
       {d && (
