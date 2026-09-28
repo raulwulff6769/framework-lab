@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff, KeyRound, Trash2, UserPlus } from 'lucide-react';
 import { can, type Me } from '../perm';
 import { api } from '../api';
-import { ErrorLine, Modal, useAsync } from '../ui';
+import { ErrorLine, Modal, Skeleton, useAsync } from '../ui';
 import { ALL_BLOCKS, BLOCKS, ROLES, type Block, type Role } from '../../../server/domain/roles';
 
 const KIND_RU: Record<string, string> = { fuchs: 'FUCHS', distributor: 'Дистрибьютор', customer: 'Клиент' };
@@ -276,6 +276,16 @@ export function Orgs({ me }: { me: Me }) {
         <span className="w-full">Шире полоса — глубже уровень. Все строки выровнены; действия сотрудника определяет его роль.</span>
       </div>
       <div className="space-y-3">
+        {orgs.loading && ordered.length === 0 &&
+          Array.from({ length: 4 }, (_, i) => (
+            <div key={`sk-${i}`} className="card relative overflow-hidden" aria-hidden="true">
+              <span className="absolute inset-y-0 left-0 bg-[#7c9082]/25" style={{ width: i === 0 ? LEVEL.fuchs.width : i === 1 ? LEVEL.distributor.width : LEVEL.customer.width }} />
+              <div className="flex items-center gap-3 py-4 pr-4 pl-11 sm:py-5 sm:pr-5 sm:pl-12">
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-4" style={{ width: `${34 + (i % 3) * 12}%` }} />
+              </div>
+            </div>
+          ))}
         {ordered.map((o) => {
           const lv = LEVEL[o.kind] ?? LEVEL.customer;
           return (

@@ -3,7 +3,7 @@ import { Camera, Check, ImagePlus, Trash2 } from 'lucide-react';
 import { can, sees, type Me } from '../perm';
 import { go } from '../main';
 import { api, apiBase, CATEGORY_RU, fmt, METHOD_RU, SOURCE_RU } from '../api';
-import { Bars, ErrorLine, Fresh, Modal, useAsync } from '../ui';
+import { Bars, ErrorLine, Fresh, Modal, Skeleton, useAsync } from '../ui';
 import { Line, OilHowTo, STATUS_CLS, STATUS_RU, fmtSensor } from '../oil';
 import { SENSORS } from '../../../server/domain/sensors';
 import { BLOCKS, type Block } from '../../../server/domain/roles';
@@ -350,7 +350,33 @@ export function MachinePage({ id, me }: { id: string; me: Me }) {
   const reload = () => setTick((x) => x + 1);
   const isOwnerAdmin = me.owner_admin && m && me.org_id === m.org_id;
   if (det.error) return <ErrorLine e={det.error} />;
-  if (!m) return <div className="text-muted-foreground">Загрузка…</div>;
+  if (!m)
+    return (
+      <div className="space-y-6" aria-hidden="true">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-3.5 w-16" />
+            <Skeleton className="h-7 w-56" />
+            <Skeleton className="h-3.5 w-72" />
+          </div>
+          <Skeleton className="h-8 w-24 rounded-lg" />
+        </div>
+        <section className="card space-y-3 p-4 sm:p-5">
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </section>
+        <div className="grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <section key={i} className="card space-y-3 p-4 sm:p-5">
+              <Skeleton className="h-5" style={{ width: `${40 + (i % 3) * 12}%` }} />
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5 w-4/5" />
+              <Skeleton className="h-3.5 w-2/3" />
+            </section>
+          ))}
+        </div>
+      </div>
+    );
   const days = daily.data?.days ?? [];
   const geofences = (gf.data?.geofences ?? []).filter((g: any) => g.org_id === m.org_id);
   const remove = async () => {

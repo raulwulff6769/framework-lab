@@ -3,7 +3,7 @@ import type { Me } from '../main';
 import { sees } from '../perm';
 import { go } from '../main';
 import { api, ago, fmt } from '../api';
-import { ErrorLine, useAsync } from '../ui';
+import { ErrorLine, SkeletonRows, useAsync } from '../ui';
 import { OilHowTo, STATUS_CLS, STATUS_RU, StatusDot, fmtSensor } from '../oil';
 
 const COLS = ['oil_level_pct', 'oil_temp_c', 'hyd_temp_c', 'oil_pressure_kpa', 'oil_water_aw'] as const;
@@ -92,6 +92,7 @@ export function Oil({ me }: { me: Me }) {
               <td className="px-3 py-3"><span className={`badge ${p.status === 'overdue' ? 'bg-danger/10 text-danger' : p.status === 'soon' ? 'bg-warning/10 text-warning' : p.status === 'ok' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>{urgencyLabel(p.status)}</span></td>
               <td className="px-3 py-3 text-muted-foreground">Не указано</td>
             </tr>)}
+              {service.loading && <SkeletonRows rows={3} cols={5} />}
               {!service.loading && visibleProducts.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">{products.length ? 'Нет продуктов по выбранным фильтрам.' : 'Продукты пока не указаны в регламентах ТО.'}</td></tr>}
             </tbody>
           </table>
@@ -142,6 +143,7 @@ export function Oil({ me }: { me: Me }) {
                   <td className="px-4 py-3 text-xs text-muted-foreground">{ago(r.oil.t)}</td>
                 </tr>
               ))}
+              {res.loading && <SkeletonRows cols={2 + COLS.length + 3} />}
             </tbody>
           </table>
         </div>
