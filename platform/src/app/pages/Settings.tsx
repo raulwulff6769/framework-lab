@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Me } from '../perm';
 import { api, apiBase } from '../api';
 import { ErrorLine, Modal, useAsync } from '../ui';
+import { confirmDialog, promptDialog } from '../dialogs';
 
 export function Settings({ me }: { me: Me }) {
   const s = useAsync(() => api('GET', '/api/settings'), []);
@@ -65,7 +66,7 @@ export function Settings({ me }: { me: Me }) {
                   </div>
                 </div>
                 {!k.revoked_at && !ro && (
-                  <button className="btn-ghost h-8 px-2 text-xs text-danger" onClick={() => confirm('Отозвать ключ? Шлюз с этим ключом перестанет передавать данные.') && act(() => api('DELETE', `/api/gateway-keys/${k.id}`))}>
+                  <button className="btn-ghost h-8 px-2 text-xs text-danger" onClick={async () => (await confirmDialog({ title: 'Отозвать ключ?', body: 'Шлюз с этим ключом перестанет передавать данные.', confirmText: 'Отозвать', danger: true })) && act(() => api('DELETE', `/api/gateway-keys/${k.id}`))}>
                     Отозвать
                   </button>
                 )}
@@ -74,8 +75,8 @@ export function Settings({ me }: { me: Me }) {
             {!ro && (
               <button
                 className="btn-primary"
-                onClick={() => {
-                  const label = prompt('Название шлюза (например, «Шлюз Москва, VPS»)', 'Шлюз');
+                onClick={async () => {
+                  const label = await promptDialog({ title: 'Новый ключ шлюза', label: 'Название шлюза', placeholder: 'Шлюз Москва, VPS', defaultValue: 'Шлюз', confirmText: 'Создать ключ' });
                   if (label) act(async () => setKey(await api('POST', '/api/gateway-keys', { label })));
                 }}
               >

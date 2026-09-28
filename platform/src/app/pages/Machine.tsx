@@ -4,6 +4,7 @@ import { can, sees, type Me } from '../perm';
 import { go } from '../main';
 import { api, apiBase, CATEGORY_RU, fmt, METHOD_RU, SOURCE_RU } from '../api';
 import { Bars, ErrorLine, Fresh, Modal, Skeleton, useAsync } from '../ui';
+import { confirmDialog } from '../dialogs';
 import { BrandSpinner } from '../brand';
 import { Line, OilHowTo, STATUS_CLS, STATUS_RU, fmtSensor } from '../oil';
 import { SENSORS } from '../../../server/domain/sensors';
@@ -133,7 +134,7 @@ function SourcesBlock({ id, sources, canManage, onChange }: { id: string; source
             <button
               className="text-xs text-danger hover:underline"
               onClick={async () => {
-                if (!confirm('Отключить источник? Полученные данные сохранятся, но новые данные приниматься не будут.')) return;
+                if (!(await confirmDialog({ title: 'Отключить источник?', body: 'Полученные данные сохранятся, но новые данные приниматься не будут.', confirmText: 'Отключить' }))) return;
                 await api('POST', `/api/sources/${s.id}/disable`);
                 onChange();
               }}
@@ -160,7 +161,7 @@ function SourcesBlock({ id, sources, canManage, onChange }: { id: string; source
               <button
                 className="text-xs text-danger hover:underline"
                 onClick={async () => {
-                  if (!confirm('Удалить источник? Данные, уже полученные от него, останутся у машины.')) return;
+                  if (!(await confirmDialog({ title: 'Удалить источник?', body: 'Данные, уже полученные от него, останутся у машины.', confirmText: 'Удалить', danger: true }))) return;
                   await api('DELETE', `/api/sources/${s.id}`);
                   onChange();
                 }}
@@ -381,7 +382,7 @@ export function MachinePage({ id, me }: { id: string; me: Me }) {
   const days = daily.data?.days ?? [];
   const geofences = (gf.data?.geofences ?? []).filter((g: any) => g.org_id === m.org_id);
   const remove = async () => {
-    if (!confirm(`Переместить «${m.name}» в корзину? В течение 30 дней машину можно восстановить вместе со всеми данными.`)) return;
+    if (!(await confirmDialog({ title: `Переместить «${m.name}» в корзину?`, body: 'В течение 30 дней машину можно восстановить вместе со всеми данными.', confirmText: 'В корзину', danger: true }))) return;
     await api('DELETE', `/api/machines/${id}`);
     go('#/');
   };
@@ -697,7 +698,7 @@ export function MachinePage({ id, me }: { id: string; me: Me }) {
             <button
               className="btn-ghost"
               onClick={async () => {
-                if (confirm('Удалить всю историю местоположений этой машины? Действие необратимо.')) {
+                if (await confirmDialog({ title: 'Удалить всю историю местоположений?', body: 'Действие необратимо.', confirmText: 'Удалить', danger: true })) {
                   await api('DELETE', `/api/machines/${id}/positions`);
                   reload();
                 }

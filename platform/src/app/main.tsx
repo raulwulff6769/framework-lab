@@ -22,6 +22,7 @@ import { Stand } from './pages/Stand';
 import { Knowledge } from './pages/Knowledge';
 import { can, sees, type Me } from './perm';
 import { useDialog } from './ui';
+import { DialogHost } from './dialogs';
 import { LaunchIntro } from './intro';
 import { MovingUnderline, PressButton, PressLink } from './motion';
 
@@ -270,7 +271,12 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <>
+    <App />
+    <DialogHost />
+  </>,
+);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('../sw.js').catch(() => {});

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Server, Smartphone } from 'lucide-react';
 import { api, API_KEY, TOKEN_KEY } from '../api';
 import { ErrorLine } from '../ui';
+import { promptDialog } from '../dialogs';
 import { ThemeToggle } from '../main-toggle';
 import { BrandLockup, BrandSpinner } from '../brand';
 
@@ -196,8 +197,8 @@ export function Login({ onDone }: { onDone: () => void }) {
               <button
                 type="button"
                 className="inline-flex items-center gap-1.5 rounded-md hover:text-foreground"
-                onClick={() => {
-                  const v = prompt('Адрес сервера (пусто — по умолчанию)', localStorage.getItem(API_KEY) ?? '');
+                onClick={async () => {
+                  const v = await promptDialog({ title: 'Адрес сервера', label: 'Адрес сервера', body: 'Оставьте пустым, чтобы вернуться к адресу по умолчанию.', defaultValue: localStorage.getItem(API_KEY) ?? '', placeholder: 'https://…', mono: true, confirmText: 'Сохранить' });
                   if (v === null) return;
                   if (v.trim()) localStorage.setItem(API_KEY, v.trim());
                   else localStorage.removeItem(API_KEY);

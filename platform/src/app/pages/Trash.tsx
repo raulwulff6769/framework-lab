@@ -3,6 +3,7 @@ import { RotateCcw, Trash2 } from 'lucide-react';
 import type { Me } from '../perm';
 import { api, CATEGORY_RU } from '../api';
 import { ErrorLine, useAsync } from '../ui';
+import { confirmDialog, promptDialog } from '../dialogs';
 
 export function Trash({ me }: { me: Me }) {
   const t = useAsync(() => api('GET', '/api/trash'), []);
@@ -16,12 +17,19 @@ export function Trash({ me }: { me: Me }) {
       setErr(e);
     }
   };
-  const purge = (kind: 'orgs' | 'machines' | 'users', id: string, name: string) => {
+  const purge = async (kind: 'orgs' | 'machines' | 'users', id: string, name: string) => {
     if (kind === 'users') {
-      if (confirm(`Удалить пользователя ${name} навсегда?`)) act(() => api('DELETE', `/api/users/${id}/purge`));
+      if (await confirmDialog({ title: `Удалить пользователя ${name} навсегда?`, body: 'Действие необратимо.', confirmText: 'Удалить навсегда', danger: true })) act(() => api('DELETE', `/api/users/${id}/purge`));
       return;
     }
-    const typed = prompt(`Окончательное удаление вместе со всей телеметрией. Восстановить будет нельзя.\nВведите точное название: ${name}`);
+    const typed = await promptDialog({
+      title: 'Окончательное удаление',
+      body: 'Удаление вместе со всей телеметрией. Восстановить будет нельзя.',
+      label: `Введите точное название для подтверждения: ${name}`,
+      placeholder: name,
+      mustMatch: name,
+      confirmText: 'Удалить навсегда',
+    });
     if (typed !== null) act(() => api('DELETE', `/api/${kind}/${id}/purge`, { confirm: typed }));
   };
   const d = t.data;

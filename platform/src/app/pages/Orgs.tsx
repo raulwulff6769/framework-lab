@@ -3,6 +3,7 @@ import { Eye, EyeOff, KeyRound, Trash2, UserPlus } from 'lucide-react';
 import { can, type Me } from '../perm';
 import { api } from '../api';
 import { ErrorLine, Modal, Skeleton, useAsync } from '../ui';
+import { confirmDialog, promptDialog } from '../dialogs';
 import { ALL_BLOCKS, BLOCKS, ROLES, type Block, type Role } from '../../../server/domain/roles';
 
 const KIND_RU: Record<string, string> = { fuchs: 'FUCHS', distributor: 'Дистрибьютор', customer: 'Клиент' };
@@ -149,8 +150,8 @@ function Users({ org, me }: { org: any; me: Me }) {
               <button
                 className="btn-ghost h-8 px-2 text-xs"
                 title="Задать новый пароль"
-                onClick={() => {
-                  const pw = prompt(`Новый пароль для ${u.login} (не короче 8 символов)`);
+                onClick={async () => {
+                  const pw = await promptDialog({ title: 'Новый пароль', label: `Новый пароль для ${u.login}`, body: 'Не короче 8 символов.', minLength: 8, confirmText: 'Задать пароль' });
                   if (pw) act(() => api('POST', `/api/users/${u.id}/password`, { password: pw }));
                 }}
               >
@@ -159,7 +160,7 @@ function Users({ org, me }: { org: any; me: Me }) {
               <button
                 className="btn-ghost h-8 px-2 text-xs text-danger"
                 title="Удалить в корзину"
-                onClick={() => confirm(`Удалить пользователя ${u.login}? В течение 30 дней его можно восстановить в разделе «Корзина».`) && act(() => api('DELETE', `/api/users/${u.id}`))}
+                onClick={async () => (await confirmDialog({ title: `Удалить пользователя ${u.login}?`, body: 'В течение 30 дней его можно восстановить в разделе «Корзина».', confirmText: 'Удалить', danger: true })) && act(() => api('DELETE', `/api/users/${u.id}`))}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -215,7 +216,7 @@ export function Orgs({ me }: { me: Me }) {
     }
   };
   const remove = async (o: any) => {
-    if (!confirm(`Переместить «${o.name}» в корзину вместе с дочерними организациями, их пользователями и техникой? Восстановить можно в течение 30 дней.`)) return;
+    if (!(await confirmDialog({ title: `Переместить «${o.name}» в корзину?`, body: 'Вместе с дочерними организациями, их пользователями и техникой. Восстановить можно в течение 30 дней.', confirmText: 'В корзину', danger: true }))) return;
     try {
       await api('DELETE', `/api/orgs/${o.id}`);
       orgs.reload();

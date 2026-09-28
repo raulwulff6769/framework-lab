@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { can, type Me } from '../perm';
 import { api, ago } from '../api';
 import { ErrorLine, useAsync } from '../ui';
+import { alertDialog, promptDialog } from '../dialogs';
 
 const KINDS = [
   {
@@ -141,7 +142,14 @@ export function Connect({ me }: { me: Me }) {
     }
   };
   const wialonLogin = async () => {
-    const host = prompt('Адрес страницы входа Wialon (hosting.wialon.com или адрес Wialon Local)', 'https://hosting.wialon.com');
+    const host = await promptDialog({
+      title: 'Вход через Wialon',
+      label: 'Адрес страницы входа',
+      body: 'hosting.wialon.com или адрес вашего Wialon Local.',
+      defaultValue: 'https://hosting.wialon.com',
+      mono: true,
+      confirmText: 'Продолжить',
+    });
     if (!host) return;
     try {
       setErr(null);
@@ -172,7 +180,7 @@ export function Connect({ me }: { me: Me }) {
               <button
                 className="btn-ghost justify-self-start px-3 py-1.5 text-xs sm:justify-self-end"
                 onClick={async () => {
-                  await api('POST', `/api/connectors/${c.id}/sync`).catch((e) => alert(e.message));
+                  await api('POST', `/api/connectors/${c.id}/sync`).catch((e) => alertDialog({ title: 'Не удалось синхронизировать', body: e.message }));
                   list.reload();
                 }}
               >
