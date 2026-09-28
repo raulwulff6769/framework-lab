@@ -295,14 +295,21 @@ export function Bars({ data, unit, color = 'var(--primary)' }: { data: Array<{ l
   const max = Math.max(1e-9, ...data.map((d) => d.value ?? 0));
   if (!data.some((d) => d.value)) return <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">нет данных за период</div>;
   return (
-    <div className="flex h-40 items-end gap-1">
-      {data.map((d) => (
-        // h-full: with items-end the column is only as tall as its content and the % bar height collapses to 0
-        <div key={d.label} className="relative flex h-full flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.value === null ? 'нет данных' : d.value.toFixed(1) + ' ' + unit}`}>
-          <div className="w-full rounded-t" style={{ height: `${((d.value ?? 0) / max) * 100}%`, minHeight: d.value ? 2 : 0, background: color }} />
-          <div className="mt-1 hidden text-[10px] text-muted-foreground sm:block">{d.label.slice(8)}</div>
-        </div>
-      ))}
+    <div>
+      {/* h-full gives the % bar a definite height to resolve against (items-end alone collapses it to content) */}
+      <div className="flex h-40 items-end gap-1">
+        {data.map((d) => (
+          <div key={d.label} className="flex h-full flex-1 flex-col justify-end" title={`${d.label}: ${d.value === null ? 'нет данных' : d.value.toFixed(1) + ' ' + unit}`}>
+            <div className="w-full rounded-t" style={{ height: `${((d.value ?? 0) / max) * 100}%`, minHeight: d.value ? 2 : 0, background: color }} />
+          </div>
+        ))}
+      </div>
+      {/* day labels sit below the track: keeping them out of the column stops a full-height bar from overflowing past the card top (desktop-only, labels hidden on mobile) */}
+      <div className="mt-1 hidden gap-1 sm:flex">
+        {data.map((d) => (
+          <div key={d.label} className="flex-1 text-center text-[10px] text-muted-foreground">{d.label.slice(8)}</div>
+        ))}
+      </div>
     </div>
   );
 }
