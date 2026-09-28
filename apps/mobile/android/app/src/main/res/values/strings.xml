@@ -4,4 +4,9 @@
     <string name="title_activity_main">Отсчёт</string>
     <string name="package_name">ru.itles.app</string>
     <string name="custom_url_scheme">ru.itles.app</string>
+    <!-- Brand the @capgo/background-geolocation foreground-service notification:
+         a themed status-bar silhouette + brand-orange tint, instead of the
+         default washed-out launcher square. Read by the plugin at runtime. -->
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_stat_otschet</string>
+    <string name="capacitor_background_geolocation_notification_color">#FF4A14</string>
 </resources>
