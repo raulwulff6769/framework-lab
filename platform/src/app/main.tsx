@@ -23,6 +23,7 @@ import { Knowledge } from './pages/Knowledge';
 import { can, sees, type Me } from './perm';
 import { useDialog } from './ui';
 import { LaunchIntro } from './intro';
+import { MovingUnderline, PressButton, PressLink } from './motion';
 
 export type { Me } from './perm';
 
@@ -72,6 +73,8 @@ function App() {
   const [booted, setBooted] = useState(false);
   const [preferenceError, setPreferenceError] = useState('');
   const [sheet, setSheet] = useState(false);
+  const sideNavRef = useRef<HTMLElement>(null);
+  const tabBarRef = useRef<HTMLDivElement>(null);
   useEffect(() => setSheet(false), [hash]);
   useEffect(() => {
     const update = (e: Event) => setPreferenceError((e as CustomEvent<string>).detail);
@@ -154,9 +157,10 @@ function App() {
           <BrandLockup size={26} knockout="var(--bg-raised)" />
         </a>
         <div className="mb-5">{account}</div>
-        <nav className="-mr-1 flex flex-1 flex-col gap-0.5 overflow-y-auto pr-1" aria-label="Разделы кабинета">
+        <nav ref={sideNavRef} className="relative -mr-1 flex flex-1 flex-col gap-0.5 overflow-y-auto pr-1" aria-label="Разделы кабинета">
+          <MovingUnderline containerRef={sideNavRef} activeKey={hash} orientation="vertical" size={20} />
           {nav.map(({ h, t, icon: Icon }) => (
-            <a
+            <PressLink
               key={h}
               href={h}
               aria-current={active(h) ? 'page' : undefined}
@@ -164,10 +168,9 @@ function App() {
                 active(h) ? 'bg-accent font-semibold text-foreground' : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground'
               }`}
             >
-              {active(h) && <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full bg-primary" aria-hidden="true" />}
               <Icon className={`h-[18px] w-[18px] shrink-0 ${active(h) ? 'text-primary' : 'transition-colors group-hover:text-foreground'}`} strokeWidth={1.75} />
               {t}
-            </a>
+            </PressLink>
           ))}
         </nav>
         <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
@@ -199,20 +202,20 @@ function App() {
           <div key={pageKey} className="page-in">{page}</div>
         </main>
         <nav className="fixed inset-x-0 bottom-0 z-[1000] border-t border-border bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden" aria-label="Разделы кабинета">
-          <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}>
+          <div ref={tabBarRef} className="relative mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}>
+            <MovingUnderline containerRef={tabBarRef} activeKey={hash} orientation="horizontal" size={24} />
             {tabs.map(({ h, t, icon: Icon }) => (
-              <a
+              <PressLink
                 key={h}
                 href={h}
                 aria-current={active(h) ? 'page' : undefined}
                 className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 px-1 pt-1.5 pb-1 text-center text-[10.5px] leading-[1.15] font-medium [hyphens:manual] ${active(h) ? 'text-foreground' : 'text-muted-foreground'}`}
               >
-                {active(h) && <span className="absolute top-0 left-1/2 h-[3px] w-6 -translate-x-1/2 rounded-b-full bg-primary" aria-hidden="true" />}
                 <Icon className={`h-5 w-5 shrink-0 ${active(h) ? 'text-primary' : ''}`} strokeWidth={1.75} />
                 <span className="max-w-full">{TAB_LABEL[t] ?? t}</span>
-              </a>
+              </PressLink>
             ))}
-            <button
+            <PressButton
               type="button"
               onClick={() => setSheet(true)}
               aria-haspopup="dialog"
@@ -221,7 +224,7 @@ function App() {
             >
               <MoreHorizontal className={`h-5 w-5 ${more.some((x) => active(x.h)) ? 'text-primary' : ''}`} strokeWidth={1.75} />
               Ещё
-            </button>
+            </PressButton>
           </div>
         </nav>
         {sheet && (
