@@ -300,11 +300,6 @@ input[type='file']::file-selector-button:hover {
     opacity: 0;
   }
 }
-@keyframes spin {
-  to {
-    rotate: 360deg;
-  }
-}
 @keyframes orbit {
   to {
     rotate: 360deg;
@@ -327,15 +322,9 @@ input[type='file']::file-selector-button:hover {
 .backdrop-in {
   animation: backdrop-in var(--dur-2) var(--ease-out);
 }
-.spinner {
-  display: inline-block;
-  width: 1em;
-  height: 1em;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  animation: spin 0.7s linear infinite;
-  flex: none;
+.brand-spinner-dot {
+  transform-origin: 32px 32px;
+  animation: orbit 0.9s linear infinite;
 }
 .progress-indeterminate {
   position: relative;

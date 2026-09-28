@@ -3,7 +3,7 @@ import { ArrowRight, Eye, EyeOff, Server, Smartphone } from 'lucide-react';
 import { api, API_KEY, TOKEN_KEY } from '../api';
 import { ErrorLine } from '../ui';
 import { ThemeToggle } from '../main-toggle';
-import { BrandLockup } from '../brand';
+import { BrandLockup, BrandSpinner } from '../brand';
 
 const TICKS = Array.from({ length: 60 }, (_, i) => i);
 
@@ -176,7 +176,7 @@ export function Login({ onDone }: { onDone: () => void }) {
             <button className="btn-primary min-h-11 w-full text-[15px]" disabled={busy} aria-busy={busy}>
               {busy ? (
                 <>
-                  <span className="spinner" aria-hidden="true" />
+                  <BrandSpinner tone="current" />
                   Подождите…
                 </>
               ) : mode === 'login' ? (

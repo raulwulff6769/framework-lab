@@ -4,6 +4,7 @@ import { can, sees, type Me } from '../perm';
 import { go } from '../main';
 import { api, apiBase, CATEGORY_RU, fmt, METHOD_RU, SOURCE_RU } from '../api';
 import { Bars, ErrorLine, Fresh, Modal, Skeleton, useAsync } from '../ui';
+import { BrandSpinner } from '../brand';
 import { Line, OilHowTo, STATUS_CLS, STATUS_RU, fmtSensor } from '../oil';
 import { SENSORS } from '../../../server/domain/sensors';
 import { BLOCKS, type Block } from '../../../server/domain/roles';
@@ -419,7 +420,7 @@ export function MachinePage({ id, me }: { id: string; me: Me }) {
                 finally { setPhotoBusy(false); }
               }}>Удалить</button>}
               <label className={`btn-ghost cursor-pointer px-2.5 py-1 text-xs focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary ${photoBusy ? 'pointer-events-none opacity-70' : ''}`}>
-                {photoBusy ? <span className="spinner h-3.5 w-3.5" aria-hidden="true" /> : <ImagePlus className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />}
+                {photoBusy ? <BrandSpinner size={14} /> : <ImagePlus className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />}
                 {photoBusy ? 'Сохранение…' : photo ? 'Заменить фото' : 'Добавить фото'}
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={photoBusy} onChange={async (e) => {
                   const file = e.target.files?.[0];

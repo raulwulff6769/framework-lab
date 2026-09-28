@@ -14,6 +14,24 @@ export function BrandSymbol({ className = '', knockout = 'var(--bg)', spinning =
   );
 }
 
+/**
+ * Inline branded loader: the index dot sweeps the dial ring (a brisk lap, not the ambient
+ * hero orbit). Sizes to the surrounding text by default and inherits `currentColor` for the
+ * ring track. `tone="brand"` uses the orange index dot for neutral surfaces; `tone="current"`
+ * keeps the dot monochrome for filled buttons where the signal colour would vanish.
+ */
+export function BrandSpinner({ size = '1em', tone = 'brand', className = '' }: { size?: number | string; tone?: 'brand' | 'current'; className?: string }) {
+  const s = SYMBOL;
+  return (
+    <svg className={className} style={{ width: size, height: size, flex: 'none' }} viewBox="0 0 64 64" role="status" aria-label="Загрузка" focusable="false">
+      <circle cx={s.cx} cy={s.cy} r={s.r} fill="none" stroke="currentColor" strokeWidth={s.stroke} opacity={0.28} />
+      <g className="brand-spinner-dot">
+        <circle cx={s.dot.cx} cy={s.dot.cy} r={s.dot.r} fill={tone === 'brand' ? 'var(--signal-graphic)' : 'currentColor'} />
+      </g>
+    </svg>
+  );
+}
+
 export function BrandWordmark({ className = '' }: { className?: string }) {
   const { dots } = WORDMARK;
   return (
