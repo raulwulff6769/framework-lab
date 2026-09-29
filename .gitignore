@@ -7,6 +7,8 @@ __pycache__/
 # platform
 platform/node_modules/
 platform/dist/
+# release mirrors (large binaries live on the VPS, never committed)
+platform/downloads/
 platform/.data/
 platform/.vercel-out/
 platform/test-results/
