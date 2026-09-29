@@ -3,7 +3,7 @@ import { Camera, Check, ImagePlus, Trash2 } from 'lucide-react';
 import { can, sees, type Me } from '../perm';
 import { go } from '../main';
 import { api, apiBase, CATEGORY_RU, fmt, METHOD_RU, SOURCE_RU } from '../api';
-import { Bars, ErrorLine, Fresh, Modal, Skeleton, useAsync } from '../ui';
+import { AsyncChart, Bars, ErrorLine, Fresh, Modal, Skeleton, useAsync } from '../ui';
 import { confirmDialog } from '../dialogs';
 import { BrandSpinner } from '../brand';
 import { Line, OilHowTo, STATUS_CLS, STATUS_RU, fmtSensor } from '../oil';
@@ -643,11 +643,23 @@ export function MachinePage({ id, me }: { id: string; me: Me }) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="card p-5">
             <div className="label">Моточасы по дням, 30 дней</div>
-            {sees(me, 'hours') ? <Bars data={days.map((d: any) => ({ label: d.day, value: d.engine_hours }))} unit="ч" color="var(--chart-3)" /> : <Hidden block="hours" />}
+            {sees(me, 'hours') ? (
+              <AsyncChart loading={daily.loading} error={daily.error} empty={!days.some((d: any) => d.engine_hours)} onRetry={daily.reload}>
+                <Bars data={days.map((d: any) => ({ label: d.day, value: d.engine_hours }))} unit="ч" color="var(--chart-3)" />
+              </AsyncChart>
+            ) : (
+              <Hidden block="hours" />
+            )}
           </div>
           <div className="card p-5">
             <div className="label">Пробег по ГНСС по дням, км</div>
-            {sees(me, 'mileage') ? <Bars data={days.map((d: any) => ({ label: d.day, value: d.gnss_km }))} unit="км" color="var(--chart-2)" /> : <Hidden block="mileage" />}
+            {sees(me, 'mileage') ? (
+              <AsyncChart loading={daily.loading} error={daily.error} empty={!days.some((d: any) => d.gnss_km)} onRetry={daily.reload}>
+                <Bars data={days.map((d: any) => ({ label: d.day, value: d.gnss_km }))} unit="км" color="var(--chart-2)" />
+              </AsyncChart>
+            ) : (
+              <Hidden block="mileage" />
+            )}
           </div>
         </div>
       )}

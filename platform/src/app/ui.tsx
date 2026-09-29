@@ -313,6 +313,20 @@ export function MapView({ markers, track, height = 420, onPick }: { markers?: Ma
   return <div ref={el} style={{ height }} className="w-full overflow-hidden rounded-xl border border-border" />;
 }
 
+/** Async chart body: skeleton while loading, honest error+retry on failure, empty state only when data truly arrived empty. */
+export function AsyncChart({ loading, error, empty, onRetry, children, height = 'h-40' }: { loading: boolean; error: unknown; empty: boolean; onRetry?: () => void; children: React.ReactNode; height?: string }) {
+  if (loading) return <Skeleton className={`${height} w-full`} />;
+  if (error)
+    return (
+      <div className={`flex ${height} w-full flex-col items-center justify-center gap-2`}>
+        <ErrorLine e={error} />
+        <button type="button" className="text-sm font-semibold underline underline-offset-4" onClick={onRetry}>Повторить</button>
+      </div>
+    );
+  if (empty) return <div className={`flex ${height} items-center justify-center text-sm text-muted-foreground`}>нет данных за период</div>;
+  return <>{children}</>;
+}
+
 export function Bars({ data, unit, color = 'var(--primary)' }: { data: Array<{ label: string; value: number | null }>; unit: string; color?: string }) {
   const max = Math.max(1e-9, ...data.map((d) => d.value ?? 0));
   if (!data.some((d) => d.value)) return <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">нет данных за период</div>;

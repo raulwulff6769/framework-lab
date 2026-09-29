@@ -740,6 +740,19 @@ html.reel body {
   font-weight: 750 !important;
 }
 
+.s7-mirror {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.s7-mirror:hover {
+  color: var(--surik);
+}
+
 /* ── HUD: where you are, that there is more, and the cue that teaches the controls ────────── */
 .hud {
   display: none;

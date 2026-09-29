@@ -1,6 +1,6 @@
 {
   "name": "itles-desktop",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Отсчёт — кабинет мониторинга спецтехники для Windows",
   "author": "Отсчёт",
   "main": "main.js",
