@@ -32,17 +32,22 @@ export function Line({ points, height = 140, unit = '' }: { points: Array<[numbe
   const y = (v: number) => 100 - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * 100;
   const x = (t: number) => ((t - t0) / Math.max(1, t1 - t0)) * 100;
   const d = points.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(2)},${y(p[1]).toFixed(2)}`).join(' ');
+  // Same rule as Bars: on a narrow card the series keeps a readable width and scrolls horizontally
+  // instead of compressing; on wide cards the svg stretches to full width as before.
+  const MIN_W = 480;
   return (
-    <div className="relative" style={{ height }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
-        <path d={`${d} L100,100 L0,100 Z`} fill="var(--primary)" opacity="0.08" />
-        <path d={d} fill="none" stroke="var(--primary)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="absolute right-1 top-0 text-[10px] text-muted-foreground">
-        {fmt(hi, 1)} {unit}
-      </div>
-      <div className="absolute bottom-0 right-1 text-[10px] text-muted-foreground">
-        {fmt(lo, 1)} {unit}
+    <div className="overflow-x-auto pb-1">
+      <div className="relative" style={{ height, minWidth: MIN_W }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
+          <path d={`${d} L100,100 L0,100 Z`} fill="var(--primary)" opacity="0.08" />
+          <path d={d} fill="none" stroke="var(--primary)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+        </svg>
+        <div className="absolute right-1 top-0 text-[10px] text-muted-foreground">
+          {fmt(hi, 1)} {unit}
+        </div>
+        <div className="absolute bottom-0 right-1 text-[10px] text-muted-foreground">
+          {fmt(lo, 1)} {unit}
+        </div>
       </div>
     </div>
   );

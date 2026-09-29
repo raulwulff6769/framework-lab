@@ -327,24 +327,34 @@ export function AsyncChart({ loading, error, empty, onRetry, children, height = 
   return <>{children}</>;
 }
 
+// Daily series are never squeezed into unreadable slivers: each day gets a minimum slot, and when the
+// card is narrower than the series the track scrolls horizontally instead (thin dark scrollbar comes
+// from the global base rule). On wide cards flex-1 still stretches the track to full width, so the
+// desktop look is unchanged.
+const DAY_MIN = 16;
+
 export function Bars({ data, unit, color = 'var(--primary)' }: { data: Array<{ label: string; value: number | null }>; unit: string; color?: string }) {
   const max = Math.max(1e-9, ...data.map((d) => d.value ?? 0));
   if (!data.some((d) => d.value)) return <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">нет данных за период</div>;
   return (
-    <div>
-      {/* h-full gives the % bar a definite height to resolve against (items-end alone collapses it to content) */}
-      <div className="flex h-40 items-end gap-1">
-        {data.map((d) => (
-          <div key={d.label} className="flex h-full flex-1 flex-col justify-end" title={`${d.label}: ${d.value === null ? 'нет данных' : d.value.toFixed(1) + ' ' + unit}`}>
-            <div className="w-full rounded-t" style={{ height: `${((d.value ?? 0) / max) * 100}%`, minHeight: d.value ? 2 : 0, background: color }} />
-          </div>
-        ))}
-      </div>
-      {/* day labels sit below the track: keeping them out of the column stops a full-height bar from overflowing past the card top (desktop-only, labels hidden on mobile) */}
-      <div className="mt-1 hidden gap-1 sm:flex">
-        {data.map((d) => (
-          <div key={d.label} className="flex-1 text-center text-[10px] text-muted-foreground">{d.label.slice(8)}</div>
-        ))}
+    <div className="overflow-x-auto pb-1">
+      <div style={{ minWidth: data.length * DAY_MIN }}>
+        {/* h-full gives the % bar a definite height to resolve against (items-end alone collapses it to content) */}
+        <div className="flex h-40 items-end gap-1">
+          {data.map((d) => (
+            <div key={d.label} className="flex h-full flex-1 flex-col justify-end" title={`${d.label}: ${d.value === null ? 'нет данных' : d.value.toFixed(1) + ' ' + unit}`}>
+              <div className="w-full rounded-t" style={{ height: `${((d.value ?? 0) / max) * 100}%`, minHeight: d.value ? 2 : 0, background: color }} />
+            </div>
+          ))}
+        </div>
+        {/* day labels sit below the track inside the same scrolling box: keeping them out of the column
+            stops a full-height bar from overflowing past the card top, and scrolling keeps them aligned
+            with their bars instead of overlapping when the card is narrow */}
+        <div className="mt-1 flex gap-1">
+          {data.map((d) => (
+            <div key={d.label} className="flex-1 text-center text-[10px] text-muted-foreground">{d.label.slice(8)}</div>
+          ))}
+        </div>
       </div>
     </div>
   );
