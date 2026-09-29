@@ -36,6 +36,23 @@ async function serveStatic(pathname: string, res: http.ServerResponse) {
     res.writeHead(403).end();
     return;
   }
+  // Release mirrors survive rebuilds: /downloads/* is served from a sibling folder (dist is wiped by builds).
+  if (rel.startsWith('/downloads/')) {
+    const dl = path.resolve(root, '..', 'downloads', rel.slice('/downloads/'.length));
+    if (dl.startsWith(path.resolve(root, '..'))) {
+      try {
+        const st = await stat(dl);
+        if (!st.isDirectory()) {
+          res.writeHead(200, {
+            'content-type': TYPES[path.extname(dl)] ?? 'application/octet-stream',
+            'cache-control': 'public, max-age=300',
+          });
+          res.end(await readFile(dl));
+          return;
+        }
+      } catch { /* fall through to normal lookup */ }
+    }
+  }
   try {
     const st = await stat(file);
     if (st.isDirectory()) {
