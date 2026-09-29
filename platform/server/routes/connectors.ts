@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { assertCap, assertOrgVisible, can, hasBlock, visibleOrgIds } from '../access.js';
 import { bad, forbidden, HttpError, json, notFound, readJson } from '../http.js';
 import { audit, router, str, user } from '../core.js';
-import { encryptSecret } from '../secrets.js';
+import { decryptSecret, encryptSecret } from '../secrets.js';
 import { fetchUnits, syncConnector } from '../connectors/sync.js';
 import { wialonLoginUrl } from '../connectors/wialon.js';
 import { ConnectorError } from '../connectors/types.js';
 import { loadMachine, recomputeDirtyDays } from '../ingest.js';
+import { assertDemoIssuer, createTraccarDemoToken, TOKEN_TTL_MS } from './traccar-demo.js';
 import { purgeExpired } from '../purge.js';
+
 import { ensureDemoTenant, pruneDemoTelemetry } from '../demo.js';
 
 function normalizeTraccarBaseUrl(baseUrl: string): string {
@@ -121,7 +123,23 @@ router.on('POST', '/api/connectors/:id/sync', async (c, { id }) => {
   if (!k) throw notFound();
   await assertCap(c.db, u, 'connectors.manage', k.org_id);
   try {
-    return json({ report: await syncConnector(c.db, id) });
+    try {
+      return json({ report: await syncConnector(c.db, id) });
+    } catch (e) {
+      // A synthetic demo connector signs its own token with a 24 h TTL: instead of dying with
+      // HTTP 401 a day later, a real superadmin's explicit sync silently renews it and retries once.
+      const row = (await c.db.query<any>(`select kind, base_url from connectors where id = $1`, [id])).rows[0];
+      const demoPath = row?.kind === 'traccar' ? /\/api\/traccar-demo\/?$/ : row?.kind === 'autograph' ? /\/api\/autograph-demo(\/ServiceJSON)?\/?$/i : null;
+      const isAuth = e instanceof ConnectorError && e.code === 'auth';
+      const selfHosted = demoPath ? (() => { try { return demoPath.test(new URL(row.base_url).pathname); } catch { return false; } })() : false;
+      if (!(isAuth && selfHosted)) throw e;
+      const issuer = await assertDemoIssuer(c);
+      const token = createTraccarDemoToken(issuer);
+      const prev = JSON.parse(decryptSecret((await c.db.query<any>(`select secret_enc from connectors where id = $1`, [id])).rows[0].secret_enc));
+      const fresh = row.kind === 'autograph' ? { ...prev, password: token } : { ...prev, token };
+      await c.db.query(`update connectors set secret_enc = $2 where id = $1`, [id, encryptSecret(JSON.stringify(fresh))]);
+      return json({ report: await syncConnector(c.db, id) });
+    }
   } catch (e) {
     if (e instanceof ConnectorError) throw new HttpError(422, 'connector_' + e.code, e.message);
     throw e;

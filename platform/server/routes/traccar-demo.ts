@@ -3,7 +3,7 @@ import { HttpError, forbidden, json } from '../http.js';
 import { router, user, type Ctx } from '../core.js';
 
 const TOKEN_SCOPE = 'traccar-demo';
-const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+export const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const HISTORY_LIMIT_MS = 48 * 60 * 60 * 1000;
 const HISTORY_MAX = 300;
 const HISTORY_STEP_MS = 15 * 60 * 1000;
